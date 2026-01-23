@@ -26,13 +26,35 @@ export default function Login() {
   }
 
   return (
-    <main>
-      <section className="hero">
-        <span className="badge">Welcome back</span>
-        <h1>Log in to continue learning</h1>
-        <p>Access your topics, videos, and personalized AI explanations.</p>
+    <main className="login-page">
+      <section className="login-hero">
+        <div>
+          <span className="badge badge--highlight">Welcome back</span>
+          <h1>Log in to a brighter learning experience</h1>
+          <p>
+            Jump back into your colorful study space, track your progress, and keep your streak
+            alive with Play mode focus sprints.
+          </p>
+          <div className="login-highlights">
+            <div className="highlight-card">
+              <h3>Personalized content</h3>
+              <p>Lessons, notes, and quizzes tailored to your current mastery.</p>
+            </div>
+            <div className="highlight-card">
+              <h3>Play mode timer</h3>
+              <p>Stay focused with time-boxed study sessions and progress streaks.</p>
+            </div>
+          </div>
+        </div>
+        <div className="hero-orb">
+          <div className="orb-glow" />
+          <div className="orb-core">
+            <span>Caps</span>
+            <strong>Level up</strong>
+          </div>
+        </div>
       </section>
-      <section className="card">
+      <section className="card login-card">
         <div className="section-header">
           <h2>Log in</h2>
           <span className="badge">Secure access</span>
@@ -58,7 +80,7 @@ export default function Login() {
               required
             />
           </label>
-          <button className="btn-primary" type="submit">
+          <button className="btn-primary btn-primary--wide" type="submit">
             Log in
           </button>
           {error && <p className="error-banner">{error}</p>}

@@ -99,13 +99,19 @@ export default function AdminTopicPage() {
 
   return (
     <main>
-      <h1>Manage Topic</h1>
-      <section>
-        <h2>Upload Video</h2>
+      <section className="hero">
+        <span className="badge">Topic management</span>
+        <h1>Manage topic assets</h1>
+        <p>Upload videos and craft quizzes that keep learners motivated.</p>
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Upload Video</h2>
+          <span className="badge">Add media</span>
+        </div>
         <form onSubmit={handleVideoUpload}>
           <label>
             Title
-            <br />
             <input
               type="text"
               value={videoTitle}
@@ -113,34 +119,41 @@ export default function AdminTopicPage() {
               required
             />
           </label>
-          <br />
           <label>
             File
-            <br />
             <input type="file" accept="video/*" onChange={handleFileChange} />
           </label>
-          <br />
-          <button type="submit">Upload</button>
+          <button className="btn-primary" type="submit">
+            Upload
+          </button>
         </form>
       </section>
-      <section>
-        <h2>Existing Videos</h2>
+      <section className="card">
+        <div className="section-header">
+          <h2>Existing Videos</h2>
+          <span className="badge">Library</span>
+        </div>
         {videos.length === 0 ? (
-          <p>No videos yet.</p>
+          <p className="muted">No videos yet.</p>
         ) : (
-          <ul>
+          <ul className="list">
             {videos.map((video) => (
-              <li key={video.id}>{video.title}</li>
+              <li className="list-item" key={video.id}>
+                <h3>{video.title}</h3>
+                <p className="muted">Uploaded video content</p>
+              </li>
             ))}
           </ul>
         )}
       </section>
-      <section>
-        <h2>Create Quiz</h2>
+      <section className="card">
+        <div className="section-header">
+          <h2>Create Quiz</h2>
+          <span className="badge">Assessments</span>
+        </div>
         <form onSubmit={handleCreateQuiz}>
           <label>
             Quiz Title
-            <br />
             <input
               type="text"
               value={quizTitle}
@@ -148,21 +161,27 @@ export default function AdminTopicPage() {
               required
             />
           </label>
-          <br />
-          <button type="submit">Create Quiz</button>
+          <button className="btn-primary" type="submit">
+            Create Quiz
+          </button>
         </form>
-        <h3>Existing Quizzes</h3>
-        {quizzes.length === 0 ? (
-          <p>No quizzes yet.</p>
-        ) : (
-          <ul>
-            {quizzes.map((quiz) => (
-              <li key={quiz.id}>{quiz.title}</li>
-            ))}
-          </ul>
-        )}
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3>Existing Quizzes</h3>
+          {quizzes.length === 0 ? (
+            <p className="muted">No quizzes yet.</p>
+          ) : (
+            <ul className="list">
+              {quizzes.map((quiz) => (
+                <li className="list-item" key={quiz.id}>
+                  <h3>{quiz.title}</h3>
+                  <p className="muted">Quiz ready for learners</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="error-banner">{error}</p>}
     </main>
   );
 }

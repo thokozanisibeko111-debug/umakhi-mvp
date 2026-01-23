@@ -43,13 +43,19 @@ export default function AdminPage() {
 
   return (
     <main>
-      <h1>Admin</h1>
-      <section>
-        <h2>Create Topic</h2>
+      <section className="hero">
+        <span className="badge">Admin workspace</span>
+        <h1>Manage topics and curriculum resources</h1>
+        <p>Curate new topics, add descriptions, and keep learner content fresh.</p>
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Create Topic</h2>
+          <span className="badge">Curriculum focus</span>
+        </div>
         <form onSubmit={handleCreateTopic}>
           <label>
             Title
-            <br />
             <input
               type="text"
               value={title}
@@ -57,30 +63,37 @@ export default function AdminPage() {
               required
             />
           </label>
-          <br />
           <label>
             Description
-            <br />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={2}
+              rows={3}
+              placeholder="Short overview for learners"
             />
           </label>
-          <br />
-          <button type="submit">Create</button>
-          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <button className="btn-primary" type="submit">
+            Create
+          </button>
+          {error && <p className="error-banner">{error}</p>}
         </form>
       </section>
-      <section>
-        <h2>Existing Topics</h2>
+      <section className="card">
+        <div className="section-header">
+          <h2>Existing Topics</h2>
+          <span className="badge">Manage content</span>
+        </div>
         {topics.length === 0 ? (
-          <p>No topics yet.</p>
+          <p className="muted">No topics yet.</p>
         ) : (
-          <ul>
+          <ul className="list">
             {topics.map((topic) => (
-              <li key={topic.id}>
-                {topic.title} – <Link href={`/admin/topics/${topic.id}`}>Manage</Link>
+              <li className="list-item" key={topic.id}>
+                <h3>{topic.title}</h3>
+                {topic.description && <p className="muted">{topic.description}</p>}
+                <Link className="nav-link" href={`/admin/topics/${topic.id}`}>
+                  Manage topic
+                </Link>
               </li>
             ))}
           </ul>

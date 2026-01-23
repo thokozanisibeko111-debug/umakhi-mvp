@@ -63,60 +63,78 @@ export default function TopicPage() {
   if (!topic) {
     return (
       <main>
-        <p>Loading topic…</p>
+        <section className="hero">
+          <h1>Loading topic…</h1>
+          <p className="muted">Preparing your lesson experience.</p>
+        </section>
       </main>
     );
   }
 
   return (
     <main>
-      <h1>{topic.title}</h1>
-      {topic.description && <p>{topic.description}</p>}
-      <h2>Videos</h2>
-      {videos.length === 0 ? (
-        <p>No videos yet for this topic.</p>
-      ) : (
-        <ul>
-          {videos.map((video) => (
-            <li key={video.id}>
-              <h3>{video.title}</h3>
-              {/* Simple HTML5 video player; adapt as needed */}
-              <video controls width="100%">
-                <source src={video.url} />
-              </video>
-            </li>
-          ))}
-        </ul>
-      )}
-      <h2>Ask uMakhi</h2>
-      <form onSubmit={askQuestion}>
-        <label>
-          Your question
-          <br />
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            rows={3}
-            cols={50}
-            placeholder="Ask a question about this topic…"
-            required
-          />
-        </label>
-        <br />
-        <button type="submit" disabled={loadingAnswer}>
-          {loadingAnswer ? 'Sending…' : 'Ask'}
-        </button>
-      </form>
-      {answer && (
-        <div>
-          <h3>Answer</h3>
-          <p>{answer}</p>
+      <section className="hero">
+        <span className="badge">Topic focus</span>
+        <h1>{topic.title}</h1>
+        {topic.description && <p>{topic.description}</p>}
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Videos</h2>
+          <span className="badge">Quick lessons</span>
         </div>
-      )}
-      <h2>Quiz</h2>
-      <p>
-        Ready to test your knowledge? <Link href={`/topic/${topic.id}/quiz`}>Take the quiz</Link>.
-      </p>
+        {videos.length === 0 ? (
+          <p className="muted">No videos yet for this topic.</p>
+        ) : (
+          <ul className="list">
+            {videos.map((video) => (
+              <li className="list-item" key={video.id}>
+                <h3>{video.title}</h3>
+                <div className="video-frame">
+                  <video controls width="100%">
+                    <source src={video.url} />
+                  </video>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Ask uMakhi</h2>
+          <span className="badge">AI help</span>
+        </div>
+        <form onSubmit={askQuestion}>
+          <label>
+            Your question
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              rows={4}
+              placeholder="Ask a question about this topic…"
+              required
+            />
+          </label>
+          <button className="btn-primary" type="submit" disabled={loadingAnswer}>
+            {loadingAnswer ? 'Sending…' : 'Ask'}
+          </button>
+        </form>
+        {answer && (
+          <div className="info-banner" style={{ marginTop: '1rem' }}>
+            <strong>Answer:</strong> {answer}
+          </div>
+        )}
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Quiz</h2>
+          <span className="badge">Practice</span>
+        </div>
+        <p className="muted">
+          Ready to test your knowledge? <Link href={`/topic/${topic.id}/quiz`}>Take the quiz</Link>.
+        </p>
+      </section>
     </main>
   );
 }

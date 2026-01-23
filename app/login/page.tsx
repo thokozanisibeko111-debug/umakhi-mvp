@@ -27,38 +27,46 @@ export default function Login() {
 
   return (
     <main>
-      <h1>Log in</h1>
-      <form onSubmit={handleLogin}>
-        <label>
-          Email
-          <br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-          />
-        </label>
-        <br />
-        <label>
-          Password
-          <br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
-            required
-          />
-        </label>
-        <br />
-        <button type="submit">Log in</button>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-      </form>
-      <p>
-        Don’t have an account? <Link href="/signup">Sign up</Link>
-      </p>
+      <section className="hero">
+        <span className="badge">Welcome back</span>
+        <h1>Log in to continue learning</h1>
+        <p>Access your topics, videos, and personalized AI explanations.</p>
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Log in</h2>
+          <span className="badge">Secure access</span>
+        </div>
+        <form onSubmit={handleLogin}>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              required
+            />
+          </label>
+          <button className="btn-primary" type="submit">
+            Log in
+          </button>
+          {error && <p className="error-banner">{error}</p>}
+        </form>
+        <p className="muted">
+          Don’t have an account? <Link href="/signup">Sign up</Link>
+        </p>
+      </section>
     </main>
   );
 }

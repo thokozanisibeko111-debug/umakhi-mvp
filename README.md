@@ -48,3 +48,7 @@ This codebase is designed to be a starting point.  You can extend it in the foll
 - **Localization** – integrate translation logic into the `ask` API route so that learners can receive answers in isiZulu or English.
 
 Feel free to modify, extend or replace any part of this scaffold to meet the needs of your project.
+
+## Content system prompt
+
+If you need a ready-to-use master prompt for generating CAPS-aligned Grade 12 Mathematics content, see `docs/vibe-master-prompt.md`.

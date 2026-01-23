@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS topics (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   title text NOT NULL,
+  paper integer NOT NULL DEFAULT 1,
   description text,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
@@ -47,6 +48,25 @@ CREATE TABLE IF NOT EXISTS topic_notes (
   introduction text NOT NULL,
   notes_md text NOT NULL,
   visuals_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+-- Table of rich topic content for admin editing.
+CREATE TABLE IF NOT EXISTS topic_content (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  topic_id uuid NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+-- Table of visuals linked to a topic.
+CREATE TABLE IF NOT EXISTS topic_visuals (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  topic_id uuid NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text,
+  image_url text,
+  svg_markup text,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
@@ -91,6 +111,12 @@ CREATE POLICY "Allow read to authenticated users" ON quizzes FOR SELECT USING (a
 
 ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow read to authenticated users" ON questions FOR SELECT USING (auth.role() IS NOT NULL);
+
+ALTER TABLE topic_content ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow read to authenticated users" ON topic_content FOR SELECT USING (auth.role() IS NOT NULL);
+
+ALTER TABLE topic_visuals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow read to authenticated users" ON topic_visuals FOR SELECT USING (auth.role() IS NOT NULL);
 
 -- Profiles table RLS: allow users to read and update their own profile.
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;

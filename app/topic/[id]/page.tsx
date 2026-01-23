@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
-import { useParams, useRouter } from 'next/navigation';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Topic {
@@ -20,14 +20,18 @@ interface Video {
 export default function TopicPage() {
   const params = useParams<{ id: string }>();
   const topicId = params.id;
-  const router = useRouter();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setError(supabaseConfigError);
+      return;
+    }
     if (topicId) {
       fetchTopic(topicId);
       fetchVideos(topicId);
@@ -35,11 +39,17 @@ export default function TopicPage() {
   }, [topicId]);
 
   async function fetchTopic(id: string) {
+    if (!supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('topics').select('*').eq('id', id).single();
     if (!error && data) setTopic(data as Topic);
   }
 
   async function fetchVideos(id: string) {
+    if (!supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('videos').select('*').eq('topic_id', id);
     if (!error && data) setVideos(data as Video[]);
   }
@@ -66,6 +76,7 @@ export default function TopicPage() {
         <section className="hero">
           <h1>Loading topic…</h1>
           <p className="muted">Preparing your lesson experience.</p>
+          {error && <p className="error-banner">{error}</p>}
         </section>
       </main>
     );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import Link from 'next/link';
 
 export default function Signup() {
@@ -9,16 +9,32 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  function formatAuthError(message: string) {
+    if (message.toLowerCase().includes('failed to fetch')) {
+      return 'Unable to reach Supabase. Confirm NEXT_PUBLIC_SUPABASE_URL is correct and client-visible env vars are set in your deployment.';
+    }
+    return message;
+  }
+
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setError(error.message);
-    } else {
-      // On successful sign up the user must confirm email before sign in
-      alert('Check your email for a confirmation link.');
-      window.location.href = '/login';
+    if (supabaseConfigError || !supabase) {
+      setError(supabaseConfigError ?? 'Supabase is not available.');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setError(formatAuthError(error.message));
+      } else {
+        // On successful sign up the user must confirm email before sign in
+        alert('Check your email for a confirmation link.');
+        window.location.href = '/login';
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to reach Supabase.';
+      setError(formatAuthError(message));
     }
   }
 

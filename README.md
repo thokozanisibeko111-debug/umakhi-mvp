@@ -25,9 +25,11 @@ This repository contains a very simple **Minimum Viable Product (MVP)** for the 
 
 2. **Run the schema.**  In the Supabase dashboard, open the SQL editor and run the contents of `supabase/schema.sql`.  This creates the tables used by the MVP.
 
-3. **Set up storage.**  In the Supabase dashboard, create a storage bucket called `videos`.  For a quick MVP you can set it to `public`, but you should enforce RLS on buckets in production.
+3. **Seed Grade 12 content (recommended).** Run `supabase/seed.sql` in the Supabase SQL editor to populate Paper 1 and Paper 2 topics with starter notes, visuals, videos, and quizzes.
 
-4. **Install dependencies and run the dev server.**  In your terminal, run:
+4. **Set up storage.**  In the Supabase dashboard, create a storage bucket called `videos`.  For a quick MVP you can set it to `public`, but you should enforce RLS on buckets in production.
+
+5. **Install dependencies and run the dev server.**  In your terminal, run:
 
    ```bash
    npm install
@@ -36,7 +38,7 @@ This repository contains a very simple **Minimum Viable Product (MVP)** for the 
 
    The application should now be running at http://localhost:3000.
 
-5. **Deploy.**  Once you have verified that the app works locally, you can push it to GitHub and deploy to Vercel.  Vercel will detect that this is a Next.js application and build it automatically.  Make sure to set your environment variables on Vercel (SUPABASE URL, SUPABASE anon key, OPENAI keys, etc.).
+6. **Deploy.**  Once you have verified that the app works locally, you can push it to GitHub and deploy to Vercel.  Vercel will detect that this is a Next.js application and build it automatically.  Make sure to set your environment variables on Vercel (SUPABASE URL, SUPABASE anon key, OPENAI keys, etc.).
 
 ## Extending this scaffold
 

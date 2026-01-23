@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react';
 import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import Link from 'next/link';
+import {
+  grade12Notes,
+  grade12Questions,
+  grade12Quizzes,
+  grade12Topics,
+  grade12Videos,
+} from '../data/grade12Maths';
 
 interface Topic {
   id: string;
@@ -15,6 +22,8 @@ export default function AdminPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (supabaseConfigError) {
@@ -49,6 +58,58 @@ export default function AdminPage() {
       setTitle('');
       setDescription('');
       fetchTopics();
+    }
+  }
+
+  async function handleSeedContent() {
+    setError(null);
+    setSeedMessage(null);
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    try {
+      setSeeding(true);
+      const topicIds = grade12Topics.map((topic) => topic.id);
+
+      const { error: topicError } = await supabase.from('topics').upsert(grade12Topics);
+      if (topicError) {
+        throw new Error(topicError.message);
+      }
+
+      await supabase.from('topic_notes').delete().in('topic_id', topicIds);
+      await supabase.from('videos').delete().in('topic_id', topicIds);
+      await supabase.from('quizzes').delete().in('topic_id', topicIds);
+
+      const { error: notesError } = await supabase.from('topic_notes').insert(grade12Notes);
+      if (notesError) {
+        throw new Error(notesError.message);
+      }
+
+      const { error: videosError } = await supabase.from('videos').insert(grade12Videos);
+      if (videosError) {
+        throw new Error(videosError.message);
+      }
+
+      const { error: quizzesError } = await supabase.from('quizzes').insert(grade12Quizzes);
+      if (quizzesError) {
+        throw new Error(quizzesError.message);
+      }
+
+      const quizIds = grade12Quizzes.map((quiz) => quiz.id);
+      await supabase.from('questions').delete().in('quiz_id', quizIds);
+
+      const { error: questionsError } = await supabase.from('questions').insert(grade12Questions);
+      if (questionsError) {
+        throw new Error(questionsError.message);
+      }
+
+      setSeedMessage('Grade 12 Mathematics content seeded successfully.');
+      fetchTopics();
+    } catch (seedError) {
+      setError(seedError instanceof Error ? seedError.message : 'Unable to seed content.');
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -88,6 +149,20 @@ export default function AdminPage() {
           </button>
           {error && <p className="error-banner">{error}</p>}
         </form>
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Seed Grade 12 Mathematics</h2>
+          <span className="badge">One-click setup</span>
+        </div>
+        <p className="muted">
+          This will populate Paper 1 and Paper 2 topics with starter notes, visuals, videos, and quizzes.
+        </p>
+        <button className="btn-primary" type="button" onClick={handleSeedContent} disabled={seeding}>
+          {seeding ? 'Seeding content…' : 'Seed Grade 12 Content'}
+        </button>
+        {seedMessage && <p className="info-banner">{seedMessage}</p>}
+        {error && <p className="error-banner">{error}</p>}
       </section>
       <section className="card">
         <div className="section-header">

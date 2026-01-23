@@ -92,7 +92,9 @@ export default function Home() {
           <span className="badge">Updated weekly</span>
         </div>
         {topics.length === 0 ? (
-          <p className="muted">No topics found. Ask an admin to add some.</p>
+          <p className="muted">
+            No topics found yet. Ask an admin to seed Grade 12 content from the Admin page.
+          </p>
         ) : (
           <ul className="list">
             {topics.map((topic) => (

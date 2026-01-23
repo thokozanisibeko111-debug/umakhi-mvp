@@ -34,6 +34,19 @@ CREATE TABLE IF NOT EXISTS videos (
   topic_id uuid NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
   title text NOT NULL,
   url text NOT NULL,
+  source text,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+-- Table of topic notes.  Each topic can store rich notes content and
+-- JSON visuals to render on the topic page.
+CREATE TABLE IF NOT EXISTS topic_notes (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  topic_id uuid NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  introduction text NOT NULL,
+  notes_md text NOT NULL,
+  visuals_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
@@ -69,6 +82,9 @@ CREATE POLICY "Allow read to authenticated users" ON topics FOR SELECT USING (au
 
 ALTER TABLE videos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow read to authenticated users" ON videos FOR SELECT USING (auth.role() IS NOT NULL);
+
+ALTER TABLE topic_notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow read to authenticated users" ON topic_notes FOR SELECT USING (auth.role() IS NOT NULL);
 
 ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow read to authenticated users" ON quizzes FOR SELECT USING (auth.role() IS NOT NULL);

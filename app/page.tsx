@@ -1,111 +1,66 @@
-'use client';
-
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
-
-interface Topic {
-  id: string;
-  title: string;
-  description?: string;
-}
+import { paperTopics, uiLabels } from './data/grade12';
 
 export default function Home() {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    if (supabaseConfigError || !supabase) {
-      return;
-    }
-    // Fetch the current user if logged in
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-    fetchTopics();
-  }, []);
-
-  async function fetchTopics() {
-    if (supabaseConfigError || !supabase) {
-      return;
-    }
-    const { data, error } = await supabase.from('topics').select('*');
-    if (!error && data) {
-      setTopics(data as Topic[]);
-    }
-  }
-
-  if (supabaseConfigError) {
-    return (
-      <main>
-        <h1>Welcome to uMakhi</h1>
-        <p>{supabaseConfigError}</p>
-        <p>
-          Please add your Supabase credentials, then refresh this page.
-        </p>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main>
-        <section className="hero">
-          <span className="badge">Welcome to uMakhi</span>
-          <h1>Bring clarity to Grade 12 Mathematics.</h1>
-          <p>
-            Learn with guided topics, short videos, and AI-powered answers. Sign in to unlock
-            topics curated for your syllabus.
-          </p>
-        </section>
-        <section className="card">
-          <div className="section-header">
-            <h2>Get started</h2>
-            <span className="badge">Free to explore</span>
-          </div>
-          <p className="muted">
-            Create an account to access personalized topics, quizzes, and tailored explanations.
-          </p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link className="nav-link" href="/login">
-              Log in
-            </Link>
-            <Link className="nav-link" href="/signup">
-              Sign up
-            </Link>
-          </div>
-        </section>
-      </main>
-    );
-  }
+  const allTopics = [...paperTopics[1], ...paperTopics[2]];
+  const completed = allTopics.filter((topic) => topic.mastery >= 80).length;
+  const average = Math.round(
+    allTopics.reduce((sum, topic) => sum + topic.mastery, 0) / allTopics.length
+  );
 
   return (
     <main>
       <section className="hero">
-        <span className="badge">Your learning dashboard</span>
-        <h1>Topics</h1>
-        <p>Pick a topic to review key ideas, watch quick lessons, and quiz yourself.</p>
+        <span className="badge">uMakhi Grade 12 CAPS</span>
+        <h1>{uiLabels.dashboardTitle.en}</h1>
+        <p>
+          Navigate Paper 1 and Paper 2 topics, learn with simple notes and visuals, practice with
+          worked examples, and get instant feedback on quizzes.
+        </p>
+      </section>
+      <section className="card dashboard-grid">
+        <div className="section-header">
+          <h2>{uiLabels.progressSummary.en}</h2>
+          <span className="badge">CAPS aligned</span>
+        </div>
+        <div className="progress-summary">
+          <div className="progress-card">
+            <h3>{uiLabels.topicsCompleted.en}</h3>
+            <p className="metric">
+              {completed} / {allTopics.length}
+            </p>
+          </div>
+          <div className="progress-card">
+            <h3>{uiLabels.averageMastery.en}</h3>
+            <p className="metric">{average}%</p>
+          </div>
+        </div>
       </section>
       <section className="card">
         <div className="section-header">
-          <h2>Available topics</h2>
-          <span className="badge">Updated weekly</span>
+          <h2>Pick your paper</h2>
+          <span className="badge">Learner view</span>
         </div>
-        {topics.length === 0 ? (
-          <p className="muted">No topics found. Ask an admin to add some.</p>
-        ) : (
-          <ul className="list">
-            {topics.map((topic) => (
-              <li className="list-item" key={topic.id}>
-                <h3>{topic.title}</h3>
-                {topic.description && <p className="muted">{topic.description}</p>}
-                <Link className="nav-link" href={`/topic/${topic.id}`}>
-                  Explore topic
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="paper-grid">
+          <div className="paper-card">
+            <h3>{uiLabels.paper1.en}</h3>
+            <p className="muted">
+              Functions, sequences, finance, algebra, calculus, and probability.
+            </p>
+            <Link className="btn-primary" href="/paper/1">
+              Open Paper 1
+            </Link>
+          </div>
+          <div className="paper-card">
+            <h3>{uiLabels.paper2.en}</h3>
+            <p className="muted">
+              Trigonometry, analytical geometry, Euclidean geometry, and statistics.
+            </p>
+            <Link className="btn-primary" href="/paper/2">
+              Open Paper 2
+            </Link>
+          </div>
+        </div>
       </section>
     </main>
   );

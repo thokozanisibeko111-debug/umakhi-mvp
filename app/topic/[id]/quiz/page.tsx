@@ -1,66 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
+import { topics, Difficulty, LocalizedText } from '../../../data/grade12';
 
-interface Question {
-  id: string;
-  question: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  correct_option: string;
-  explanation?: string;
+type Language = 'en' | 'zu';
+
+const masteryWeights: Record<Difficulty, number> = {
+  Easy: 5,
+  Medium: 10,
+  Hard: 15,
+};
+
+function getText(text: LocalizedText, language: Language) {
+  return text[language];
 }
 
 export default function QuizPage() {
   const params = useParams<{ id: string }>();
-  const topicId = params.id;
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const topic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
   const [current, setCurrent] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [mastery, setMastery] = useState(0);
   const [finished, setFinished] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<Language>('en');
 
-  useEffect(() => {
-    if (supabaseConfigError) {
-      setError(supabaseConfigError);
-      return;
-    }
-    fetchQuestions();
-  }, [topicId]);
-
-  async function fetchQuestions() {
-    if (!supabase) {
-      return;
-    }
-    // get quizzes for this topic
-    const { data: quizzes } = await supabase.from('quizzes').select('id').eq('topic_id', topicId).limit(1);
-    if (quizzes && quizzes.length > 0) {
-      const quizId = quizzes[0].id;
-      const { data, error } = await supabase.from('questions').select('*').eq('quiz_id', quizId);
-      if (!error && data) {
-        setQuestions(data as Question[]);
-      }
-    }
+  if (!topic) {
+    return (
+      <main>
+        <p>Quiz not found.</p>
+      </main>
+    );
   }
 
-  function handleAnswer(option: string) {
-    setSelected(option);
-  }
+  const questions = topic.quizzes;
+  const currentQuestion = questions[current];
 
   function handleSubmit() {
-    if (selected) {
-      const currentQuestion = questions[current];
-      if (selected === currentQuestion.correct_option) {
-        setScore((prev) => prev + 1);
-      }
-      setShowExplanation(true);
+    if (selected === null) {
+      return;
     }
+    const isCorrect = selected === currentQuestion.correctIndex;
+    if (isCorrect) {
+      setScore((prev) => prev + 1);
+      setMastery((prev) => Math.min(prev + masteryWeights[currentQuestion.difficulty], 100));
+    }
+    setShowExplanation(true);
   }
 
   function nextQuestion() {
@@ -73,72 +60,88 @@ export default function QuizPage() {
     }
   }
 
-  if (questions.length === 0) {
-    return (
-      <main>
-        <p>No quiz available for this topic.</p>
-        {error && <p className="error-banner">{error}</p>}
-      </main>
-    );
-  }
-
   if (finished) {
+    const percent = Math.round((score / questions.length) * 100);
+
     return (
       <main>
-        <h2>Quiz completed</h2>
-        <p>
-          Your score: {score} / {questions.length}
-        </p>
+        <section className="hero">
+          <span className="badge">Quiz completed</span>
+          <h1>{topic.title.en}</h1>
+          <p>Your score: {score} / {questions.length} ({percent}%)</p>
+          <p>Mastery gained: {mastery}%</p>
+        </section>
+        <section className="card">
+          <h2>Next steps</h2>
+          <ul>
+            <li>Review questions you missed in the quiz.</li>
+            <li>Revisit the Notes and Worked Examples sections.</li>
+            <li>Try again to push mastery above 80%.</li>
+          </ul>
+        </section>
       </main>
     );
   }
-
-  const q = questions[current];
 
   return (
     <main>
-      <h2>Quiz</h2>
-      <p>
-        Question {current + 1} of {questions.length}
-      </p>
-      <p>{q.question}</p>
-      <div>
-        {(['A', 'B', 'C', 'D'] as Array<'A' | 'B' | 'C' | 'D'>).map((option) => {
-          const text = q[`option_${option.toLowerCase()}` as keyof Question] as string;
-          return (
-            <div key={option}>
-              <label>
-                <input
-                  type="radio"
-                  name="answer"
-                  value={option}
-                  checked={selected === option}
-                  onChange={() => handleAnswer(option)}
-                />
-                {option}. {text}
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      {!showExplanation && (
-        <button onClick={handleSubmit} disabled={!selected}>
-          Submit
-        </button>
-      )}
-      {showExplanation && (
-        <div>
-          {selected === q.correct_option ? (
-            <p style={{ color: 'green' }}>Correct!</p>
-          ) : (
-            <p style={{ color: 'red' }}>
-              Incorrect. The correct answer is {q.correct_option}.
-            </p>
-          )}
-          {q.explanation && <p>Explanation: {q.explanation}</p>}
-          <button onClick={nextQuestion}>Next question</button>
+      <section className="hero">
+        <span className="badge">Quiz</span>
+        <h1>{topic.title.en}</h1>
+        <p>
+          Question {current + 1} of {questions.length} • Difficulty {currentQuestion.difficulty}
+        </p>
+        <div className="progress-bar">
+          <div style={{ width: `${(current / questions.length) * 100}%` }} />
         </div>
-      )}
+      </section>
+      <section className="card">
+        <div className="language-toggle">
+          <label htmlFor="quiz-language">Language</label>
+          <select
+            id="quiz-language"
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as Language)}
+          >
+            <option value="en">English</option>
+            <option value="zu">isiZulu</option>
+          </select>
+        </div>
+        <h2>{getText(currentQuestion.question, language)}</h2>
+        <div className="quiz-options">
+          {currentQuestion.options.map((option, index) => (
+            <label key={option.en} className={`option-card ${selected === index ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="answer"
+                value={index}
+                checked={selected === index}
+                onChange={() => setSelected(index)}
+              />
+              <span>{getText(option, language)}</span>
+            </label>
+          ))}
+        </div>
+        {!showExplanation && (
+          <button className="btn-primary" onClick={handleSubmit} disabled={selected === null}>
+            Submit
+          </button>
+        )}
+        {showExplanation && (
+          <div className="quiz-feedback">
+            {selected === currentQuestion.correctIndex ? (
+              <p className="success">Correct!</p>
+            ) : (
+              <p className="error">Incorrect.</p>
+            )}
+            <p>{getText(currentQuestion.solution, language)}</p>
+            <p className="muted">{getText(currentQuestion.feedback, language)}</p>
+            <button className="btn-secondary" onClick={nextQuestion}>
+              Next question
+            </button>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

@@ -3,8 +3,8 @@ import React from 'react';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'uMakhi MVP',
-  description: 'Grade 12 Mathematics learning assistant',
+  title: 'uMakhi',
+  description: 'CAPS-aligned Grade 12 Mathematics learning platform',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -16,11 +16,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="top-bar-content">
               <div className="brand">
                 <span className="brand-title">uMakhi</span>
-                <span className="brand-subtitle">Grade 12 Mathematics companion</span>
+                <span className="brand-subtitle">Grade 12 Mathematics • CAPS</span>
               </div>
               <nav className="nav-links">
                 <Link className="nav-link" href="/">
                   Home
+                </Link>
+                <Link className="nav-link" href="/paper/1">
+                  Paper 1
+                </Link>
+                <Link className="nav-link" href="/paper/2">
+                  Paper 2
                 </Link>
                 <Link className="nav-link" href="/login">
                   Log in

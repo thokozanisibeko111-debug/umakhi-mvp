@@ -1,86 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
-import { useParams } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { topics, uiLabels, LocalizedText, Difficulty, QuizQuestion } from '../../data/grade12';
 
-interface Topic {
-  id: string;
-  title: string;
-  description?: string;
+type Language = 'en' | 'zu';
+
+const difficultyOrder: Record<Difficulty, number> = {
+  Easy: 1,
+  Medium: 2,
+  Hard: 3,
+};
+
+function getText(text: LocalizedText, language: Language) {
+  return text[language];
 }
 
-interface Video {
-  id: string;
-  title: string;
-  url: string;
-  source?: string | null;
-  description?: string | null;
-}
-
-interface TopicNotes {
-  id: string;
-  introduction: string;
-  notes_md: string;
-  visuals_json: Array<{
-    title: string;
-    description?: string;
-    svg: string;
-  }>;
+function groupByDifficulty(items: QuizQuestion[]) {
+  return items.reduce<Record<Difficulty, QuizQuestion[]>>(
+    (acc, item) => {
+      acc[item.difficulty].push(item);
+      return acc;
+    },
+    { Easy: [], Medium: [], Hard: [] }
+  );
 }
 
 export default function TopicPage() {
   const params = useParams<{ id: string }>();
-  const topicId = params.id;
-  const [topic, setTopic] = useState<Topic | null>(null);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [notes, setNotes] = useState<TopicNotes | null>(null);
+  const topic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
+  const [language, setLanguage] = useState<Language>('en');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (supabaseConfigError) {
-      setError(supabaseConfigError);
-      return;
-    }
-    if (topicId) {
-      fetchTopic(topicId);
-      fetchNotes(topicId);
-      fetchVideos(topicId);
-    }
-  }, [topicId]);
-
-  async function fetchTopic(id: string) {
-    if (!supabase) {
-      return;
-    }
-    const { data, error } = await supabase.from('topics').select('*').eq('id', id).single();
-    if (!error && data) setTopic(data as Topic);
-  }
-
-  async function fetchVideos(id: string) {
-    if (!supabase) {
-      return;
-    }
-    const { data, error } = await supabase.from('videos').select('*').eq('topic_id', id);
-    if (!error && data) setVideos(data as Video[]);
-  }
-
-  async function fetchNotes(id: string) {
-    if (!supabase) {
-      return;
-    }
-    const { data, error } = await supabase
-      .from('topic_notes')
-      .select('*')
-      .eq('topic_id', id)
-      .single();
-    if (!error && data) {
-      setNotes(data as TopicNotes);
-    }
+  if (!topic) {
+    return (
+      <main>
+        <section className="hero">
+          <h1>Topic not found</h1>
+          <p className="muted">Return to the paper list to choose another topic.</p>
+        </section>
+      </main>
+    );
   }
 
   async function askQuestion(e: React.FormEvent) {
@@ -92,186 +55,283 @@ export default function TopicPage() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt: question }),
+      body: JSON.stringify({ prompt: question, language: language === 'zu' ? 'isiZulu' : 'English' }),
     });
     const data = await res.json();
     setAnswer(data.answer);
     setLoadingAnswer(false);
   }
 
-  if (!topic) {
-    return (
-      <main>
-        <section className="hero">
-          <h1>Loading topic…</h1>
-          <p className="muted">Preparing your lesson experience.</p>
-          {error && <p className="error-banner">{error}</p>}
-        </section>
-      </main>
-    );
-  }
-
-  function renderNotesContent(content: string) {
-    const lines = content.split('\n');
-    const blocks: JSX.Element[] = [];
-    let listItems: string[] = [];
-
-    const flushList = () => {
-      if (listItems.length > 0) {
-        blocks.push(
-          <ul key={`list-${blocks.length}`}>
-            {listItems.map((item, index) => (
-              <li key={`${item}-${index}`}>{item}</li>
-            ))}
-          </ul>
-        );
-        listItems = [];
-      }
-    };
-
-    lines.forEach((line, index) => {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        flushList();
-        return;
-      }
-      if (trimmed.startsWith('## ')) {
-        flushList();
-        blocks.push(<h3 key={`h3-${index}`}>{trimmed.replace('## ', '')}</h3>);
-        return;
-      }
-      if (trimmed.startsWith('### ')) {
-        flushList();
-        blocks.push(<h4 key={`h4-${index}`}>{trimmed.replace('### ', '')}</h4>);
-        return;
-      }
-      if (trimmed.startsWith('- ')) {
-        listItems.push(trimmed.replace('- ', ''));
-        return;
-      }
-      flushList();
-      blocks.push(<p key={`p-${index}`}>{trimmed}</p>);
-    });
-
-    flushList();
-    return blocks;
-  }
-
-  function renderVideo(video: Video) {
-    const youtubeMatch = video.url.match(
-      /(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/)([a-zA-Z0-9_-]+)/
-    );
-    if (youtubeMatch) {
-      const embedUrl = `https://www.youtube.com/embed/${youtubeMatch[1]}`;
-      return (
-        <iframe
-          title={video.title}
-          src={embedUrl}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      );
-    }
-    return (
-      <video controls width="100%">
-        <source src={video.url} />
-      </video>
-    );
-  }
+  const quizzesByDifficulty = groupByDifficulty(topic.quizzes);
+  const examplesByDifficulty = Object.entries(topic.examples).sort(
+    ([a], [b]) => difficultyOrder[a as Difficulty] - difficultyOrder[b as Difficulty]
+  );
 
   return (
     <main>
       <section className="hero">
-        <span className="badge">Topic focus</span>
-        <h1>{topic.title}</h1>
-        {topic.description && <p>{topic.description}</p>}
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Introduction & Notes</h2>
-          <span className="badge">Study guide</span>
-        </div>
-        {notes ? (
-          <div className="notes-content">
-            <p className="muted">{notes.introduction}</p>
-            {renderNotesContent(notes.notes_md)}
-            {notes.visuals_json?.length > 0 && (
-              <>
-                <h3>Visuals</h3>
-                <div className="visual-grid">
-                  {notes.visuals_json.map((visual, index) => (
-                    <div className="visual-card" key={`${visual.title}-${index}`}>
-                      <h4>{visual.title}</h4>
-                      {visual.description && <p className="muted">{visual.description}</p>}
-                      <div
-                        className="visual-frame"
-                        dangerouslySetInnerHTML={{ __html: visual.svg }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+        <div className="hero-top">
+          <span className="badge">Paper {topic.paper}</span>
+          <div className="language-toggle">
+            <label htmlFor="language-select">{uiLabels.chooseLanguage.en}</label>
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) => setLanguage(event.target.value as Language)}
+            >
+              <option value="en">{uiLabels.english.en}</option>
+              <option value="zu">{uiLabels.zulu.en}</option>
+            </select>
           </div>
-        ) : (
-          <p className="muted">Notes are being prepared for this topic.</p>
-        )}
+        </div>
+        <h1>{getText(topic.title, language)}</h1>
+        <p>{getText(topic.description, language)}</p>
+        <div className="progress-bar">
+          <div style={{ width: `${topic.mastery}%` }} />
+        </div>
+        <p className="topic-subtitle">
+          {uiLabels.masteryScore.en}: {topic.mastery}%
+        </p>
       </section>
+
       <section className="card">
         <div className="section-header">
-          <h2>Videos</h2>
-          <span className="badge">Quick lessons</span>
+          <h2>{uiLabels.introduction.en}</h2>
+          <span className="badge">Starter focus</span>
         </div>
-        {videos.length === 0 ? (
-          <p className="muted">No videos yet for this topic.</p>
-        ) : (
-          <ul className="list">
-            {videos.map((video) => (
-              <li className="list-item" key={video.id}>
-                <h3>{video.title}</h3>
-                {video.description && <p className="muted">{video.description}</p>}
-                <div className="video-frame">
-                  {renderVideo(video)}
-                </div>
-              </li>
+        <div className="intro-grid">
+          <div>
+            <h3>{getText({ en: 'What you will learn', zu: 'Ozokufunda' }, language)}</h3>
+            <ul>
+              {topic.introduction.outcomes.map((outcome) => (
+                <li key={outcome.en}>{getText(outcome, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>{getText({ en: 'Why it matters', zu: 'Kungani kubalulekile' }, language)}</h3>
+            <p className="muted">{getText(topic.introduction.importance, language)}</p>
+          </div>
+        </div>
+        <div className="example-card">
+          <h3>{getText({ en: 'Starter example', zu: 'Isibonelo sokuqala' }, language)}</h3>
+          <p>{getText(topic.introduction.starterExample.question, language)}</p>
+          <ol>
+            {topic.introduction.starterExample.steps.map((step) => (
+              <li key={step.en}>{getText(step, language)}</li>
+            ))}
+          </ol>
+          <p className="highlight">{getText(topic.introduction.starterExample.answer, language)}</p>
+          <p className="muted">{getText(topic.introduction.starterExample.why, language)}</p>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2>{uiLabels.notes.en}</h2>
+          <span className="badge">Visual study notes</span>
+        </div>
+        <p className="muted">{getText(topic.notes.intro, language)}</p>
+        {topic.notes.sections.map((section) => (
+          <div key={section.title.en} className="notes-section">
+            <h3>{getText(section.title, language)}</h3>
+            <ul>
+              {section.content.map((item) => (
+                <li key={item.en}>{getText(item, language)}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <div className="notes-grid">
+          <div>
+            <h3>{getText({ en: 'Key formulas', zu: 'Amafomula abalulekile' }, language)}</h3>
+            <ul>
+              {topic.notes.formulas.map((formula) => (
+                <li key={formula.en}>{getText(formula, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>{getText({ en: 'Common mistakes', zu: 'Amaphutha ajwayelekile' }, language)}</h3>
+            <ul>
+              {topic.notes.commonMistakes.map((mistake) => (
+                <li key={mistake.en}>{getText(mistake, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>{getText({ en: 'Exam tips', zu: 'Amacebiso e-exam' }, language)}</h3>
+            <ul>
+              {topic.notes.examTips.map((tip) => (
+                <li key={tip.en}>{getText(tip, language)}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="notes-summary">
+          <h3>{getText({ en: 'Summary', zu: 'Isifinyezo' }, language)}</h3>
+          <ul>
+            {topic.notes.summary.map((summary) => (
+              <li key={summary.en}>{getText(summary, language)}</li>
             ))}
           </ul>
-        )}
+        </div>
+        <h3>{getText({ en: 'Visuals', zu: 'Izithombe' }, language)}</h3>
+        <div className="visual-grid">
+          {topic.visuals.map((visual) => (
+            <div className="visual-card" key={visual.title.en}>
+              <h4>{getText(visual.title, language)}</h4>
+              <p className="muted">{getText(visual.description, language)}</p>
+              <div className="visual-frame" dangerouslySetInnerHTML={{ __html: visual.svg }} />
+            </div>
+          ))}
+        </div>
       </section>
+
       <section className="card">
         <div className="section-header">
-          <h2>Ask uMakhi</h2>
-          <span className="badge">AI help</span>
+          <h2>{uiLabels.workedExamples.en}</h2>
+          <span className="badge">Easy → Medium → Hard</span>
         </div>
-        <form onSubmit={askQuestion}>
-          <label>
-            Your question
-            <textarea
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              rows={4}
-              placeholder="Ask a question about this topic…"
-              required
-            />
-          </label>
-          <button className="btn-primary" type="submit" disabled={loadingAnswer}>
-            {loadingAnswer ? 'Sending…' : 'Ask'}
-          </button>
-        </form>
+        {examplesByDifficulty.map(([difficulty, examples]) => (
+          <div key={difficulty} className="difficulty-group">
+            <h3>{difficulty}</h3>
+            <div className="example-grid">
+              {examples.map((example) => (
+                <div className="example-card" key={example.question.en}>
+                  <p className="example-question">{getText(example.question, language)}</p>
+                  <ol>
+                    {example.steps.map((step) => (
+                      <li key={step.en}>{getText(step, language)}</li>
+                    ))}
+                  </ol>
+                  <p className="highlight">{getText(example.answer, language)}</p>
+                  <p className="muted">{getText(example.why, language)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2>{uiLabels.quizzes.en}</h2>
+          <span className="badge">Practice & feedback</span>
+        </div>
+        <p className="muted">
+          Ready to test yourself? <Link href={`/topic/${topic.id}/quiz`}>Take the quiz</Link>.
+        </p>
+        <div className="quiz-preview">
+          {(['Easy', 'Medium', 'Hard'] as Difficulty[]).map((difficulty) => (
+            <div key={difficulty} className="quiz-card">
+              <h3>{difficulty}</h3>
+              <ul>
+                {quizzesByDifficulty[difficulty].map((quiz) => (
+                  <li key={quiz.question.en}>{getText(quiz.question, language)}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2>{uiLabels.videos.en}</h2>
+          <span className="badge">Topic videos</span>
+        </div>
+        <ul className="list">
+          {topic.videos.map((video) => (
+            <li className="list-item" key={video.url}>
+              <h3>{getText(video.title, language)}</h3>
+              <p className="muted">{getText(video.description, language)}</p>
+              <div className="video-frame">
+                <iframe
+                  title={getText(video.title, language)}
+                  src={`https://www.youtube.com/embed/${video.url.split('v=')[1]}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2>{uiLabels.ask.en}</h2>
+          <span className="badge">Interactive help</span>
+        </div>
+        <div className="ask-grid">
+          <div>
+            <h3>{getText({ en: 'Try asking', zu: 'Zama ukubuza' }, language)}</h3>
+            <ul>
+              {topic.askPrompts.map((prompt) => (
+                <li key={prompt.en}>{getText(prompt, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <form onSubmit={askQuestion}>
+            <label>
+              {getText({ en: 'Your question', zu: 'Umbuzo wakho' }, language)}
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                rows={4}
+                placeholder={getText(
+                  { en: 'Ask about this topic…', zu: 'Buza ngalesi sihloko…' },
+                  language
+                )}
+                required
+              />
+            </label>
+            <button className="btn-primary" type="submit" disabled={loadingAnswer}>
+              {loadingAnswer
+                ? getText({ en: 'Sending…', zu: 'Iyathumela…' }, language)
+                : getText({ en: 'Ask', zu: 'Buza' }, language)}
+            </button>
+          </form>
+        </div>
         {answer && (
           <div className="info-banner" style={{ marginTop: '1rem' }}>
-            <strong>Answer:</strong> {answer}
+            <strong>{getText({ en: 'Answer:', zu: 'Impendulo:' }, language)}</strong> {answer}
           </div>
         )}
       </section>
+
       <section className="card">
         <div className="section-header">
-          <h2>Quiz</h2>
-          <span className="badge">Practice</span>
+          <h2>{uiLabels.progress.en}</h2>
+          <span className="badge">Mastery feedback</span>
         </div>
-        <p className="muted">
-          Ready to test your knowledge? <Link href={`/topic/${topic.id}/quiz`}>Take the quiz</Link>.
-        </p>
+        <div className="progress-grid">
+          <div>
+            <h3>{getText({ en: 'Strengths', zu: 'Amandla' }, language)}</h3>
+            <ul>
+              {topic.progress.strengths.map((item) => (
+                <li key={item.en}>{getText(item, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>{getText({ en: 'Weak areas', zu: 'Izindawo ezibuthakathaka' }, language)}</h3>
+            <ul>
+              {topic.progress.weakAreas.map((item) => (
+                <li key={item.en}>{getText(item, language)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>{getText({ en: 'What to revise next', zu: 'Okulandelayo okufanele ukubuyekeze' }, language)}</h3>
+            <ul>
+              {topic.progress.nextSteps.map((item) => (
+                <li key={item.en}>{getText(item, language)}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
     </main>
   );

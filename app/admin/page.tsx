@@ -8,12 +8,14 @@ interface Topic {
   id: string;
   title: string;
   description?: string;
+  paper?: number;
 }
 
 export default function AdminPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [paper, setPaper] = useState<1 | 2>(1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,13 +43,14 @@ export default function AdminPage() {
     }
     const { data, error } = await supabase
       .from('topics')
-      .insert({ title, description })
+      .insert({ title, description, paper })
       .select();
     if (error) {
       setError(error.message);
     } else {
       setTitle('');
       setDescription('');
+      setPaper(1);
       fetchTopics();
     }
   }
@@ -57,7 +60,10 @@ export default function AdminPage() {
       <section className="hero">
         <span className="badge">Admin workspace</span>
         <h1>Manage topics and curriculum resources</h1>
-        <p>Curate new topics, add descriptions, and keep learner content fresh.</p>
+        <p>
+          Curate new topics, assign them to papers, and open each topic for full media, content, and
+          assessment control.
+        </p>
       </section>
       <section className="card">
         <div className="section-header">
@@ -65,6 +71,13 @@ export default function AdminPage() {
           <span className="badge">Curriculum focus</span>
         </div>
         <form onSubmit={handleCreateTopic}>
+          <label>
+            Paper
+            <select value={paper} onChange={(e) => setPaper(Number(e.target.value) as 1 | 2)}>
+              <option value={1}>Paper 1</option>
+              <option value={2}>Paper 2</option>
+            </select>
+          </label>
           <label>
             Title
             <input
@@ -98,14 +111,17 @@ export default function AdminPage() {
           <p className="muted">No topics yet.</p>
         ) : (
           <ul className="list">
-            {topics.map((topic) => (
-              <li className="list-item" key={topic.id}>
+          {topics.map((topic) => (
+            <li className="list-item" key={topic.id}>
+              <div className="list-item-header">
                 <h3>{topic.title}</h3>
-                {topic.description && <p className="muted">{topic.description}</p>}
-                <Link className="nav-link" href={`/admin/topics/${topic.id}`}>
-                  Manage topic
-                </Link>
-              </li>
+                {topic.paper && <span className="badge">Paper {topic.paper}</span>}
+              </div>
+              {topic.description && <p className="muted">{topic.description}</p>}
+              <Link className="nav-link" href={`/admin/topics/${topic.id}`}>
+                Manage topic
+              </Link>
+            </li>
             ))}
           </ul>
         )}

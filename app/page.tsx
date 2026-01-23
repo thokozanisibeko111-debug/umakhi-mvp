@@ -32,26 +32,63 @@ export default function Home() {
   if (!user) {
     return (
       <main>
-        <h1>Welcome to uMakhi</h1>
-        <p>Please <Link href="/login">log in</Link> or <Link href="/signup">sign up</Link> to continue.</p>
+        <section className="hero">
+          <span className="badge">Welcome to uMakhi</span>
+          <h1>Bring clarity to Grade 12 Mathematics.</h1>
+          <p>
+            Learn with guided topics, short videos, and AI-powered answers. Sign in to unlock
+            topics curated for your syllabus.
+          </p>
+        </section>
+        <section className="card">
+          <div className="section-header">
+            <h2>Get started</h2>
+            <span className="badge">Free to explore</span>
+          </div>
+          <p className="muted">
+            Create an account to access personalized topics, quizzes, and tailored explanations.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <Link className="nav-link" href="/login">
+              Log in
+            </Link>
+            <Link className="nav-link" href="/signup">
+              Sign up
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }
 
   return (
     <main>
-      <h1>Topics</h1>
-      {topics.length === 0 ? (
-        <p>No topics found.  Ask an admin to add some.</p>
-      ) : (
-        <ul>
-          {topics.map((topic) => (
-            <li key={topic.id}>
-              <Link href={`/topic/${topic.id}`}>{topic.title}</Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="hero">
+        <span className="badge">Your learning dashboard</span>
+        <h1>Topics</h1>
+        <p>Pick a topic to review key ideas, watch quick lessons, and quiz yourself.</p>
+      </section>
+      <section className="card">
+        <div className="section-header">
+          <h2>Available topics</h2>
+          <span className="badge">Updated weekly</span>
+        </div>
+        {topics.length === 0 ? (
+          <p className="muted">No topics found. Ask an admin to add some.</p>
+        ) : (
+          <ul className="list">
+            {topics.map((topic) => (
+              <li className="list-item" key={topic.id}>
+                <h3>{topic.title}</h3>
+                {topic.description && <p className="muted">{topic.description}</p>}
+                <Link className="nav-link" href={`/topic/${topic.id}`}>
+                  Explore topic
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

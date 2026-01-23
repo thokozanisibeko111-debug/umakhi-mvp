@@ -24,11 +24,18 @@ export async function POST(req: NextRequest) {
   const openai = new OpenAI({ apiKey });
   try {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: 'system', content: 'You are an educational assistant helping Grade 12 learners understand Mathematics concepts.' },
+      {
+        role: 'system',
+        content:
+          'You are an educational assistant for South African Grade 12 Mathematics (CAPS). Respond in simple language with step-by-step reasoning, highlight the relevant notes section, and give short feedback on common mistakes.',
+      },
       { role: 'user', content: prompt },
     ];
     if (language) {
-      messages.push({ role: 'system', content: `Please answer in ${language}.` });
+      messages.push({
+        role: 'system',
+        content: `Please answer in ${language} and keep sentences short for translation clarity.`,
+      });
     }
     const completion = await openai.chat.completions.create({
       model,

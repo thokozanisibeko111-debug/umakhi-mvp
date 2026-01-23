@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 
 interface Question {
   id: string;
@@ -24,12 +24,20 @@ export default function QuizPage() {
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setError(supabaseConfigError);
+      return;
+    }
     fetchQuestions();
   }, [topicId]);
 
   async function fetchQuestions() {
+    if (!supabase) {
+      return;
+    }
     // get quizzes for this topic
     const { data: quizzes } = await supabase.from('quizzes').select('id').eq('topic_id', topicId).limit(1);
     if (quizzes && quizzes.length > 0) {
@@ -69,6 +77,7 @@ export default function QuizPage() {
     return (
       <main>
         <p>No quiz available for this topic.</p>
+        {error && <p className="error-banner">{error}</p>}
       </main>
     );
   }

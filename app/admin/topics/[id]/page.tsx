@@ -2,7 +2,7 @@
 
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 
 interface Video {
   id: string;
@@ -26,6 +26,10 @@ export default function AdminTopicPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setError(supabaseConfigError);
+      return;
+    }
     if (topicId) {
       fetchVideos();
       fetchQuizzes();
@@ -33,11 +37,17 @@ export default function AdminTopicPage() {
   }, [topicId]);
 
   async function fetchVideos() {
+    if (!supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('videos').select('*').eq('topic_id', topicId);
     if (!error && data) setVideos(data as Video[]);
   }
 
   async function fetchQuizzes() {
+    if (!supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('quizzes').select('*').eq('topic_id', topicId);
     if (!error && data) setQuizzes(data as Quiz[]);
   }
@@ -45,6 +55,10 @@ export default function AdminTopicPage() {
   async function handleVideoUpload(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
     if (!videoFile) {
       setError('Please select a video file.');
       return;
@@ -85,6 +99,10 @@ export default function AdminTopicPage() {
   async function handleCreateQuiz(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
     const { data, error } = await supabase
       .from('quizzes')
       .insert({ title: quizTitle, topic_id: topicId })

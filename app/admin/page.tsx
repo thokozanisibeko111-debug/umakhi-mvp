@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import Link from 'next/link';
 
 interface Topic {
@@ -17,10 +17,17 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setError(supabaseConfigError);
+      return;
+    }
     fetchTopics();
   }, []);
 
   async function fetchTopics() {
+    if (!supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('topics').select('*');
     if (!error && data) setTopics(data as Topic[]);
   }
@@ -28,6 +35,10 @@ export default function AdminPage() {
   async function handleCreateTopic(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
     const { data, error } = await supabase
       .from('topics')
       .insert({ title, description })

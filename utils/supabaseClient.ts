@@ -12,4 +12,6 @@ export const supabaseConfigError =
     ? 'Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
     : null;
 
-export const supabase = supabaseConfigError ? null : createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseConfigError
+  ? null
+  : createClient(supabaseUrl as string, supabaseAnonKey as string);

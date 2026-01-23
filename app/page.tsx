@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import StudyPlayTimer from './components/StudyPlayTimer';
 import { paperTopics, uiLabels } from './data/grade12';
 
 export default function Home() {
@@ -61,6 +62,9 @@ export default function Home() {
             </Link>
           </div>
         </div>
+      </section>
+      <section className="card card--play">
+        <StudyPlayTimer />
       </section>
     </main>
   );

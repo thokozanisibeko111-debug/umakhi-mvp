@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import Link from 'next/link';
 
 export default function Login() {
@@ -12,6 +12,10 @@ export default function Login() {
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (supabaseConfigError || !supabase) {
+      setError(supabaseConfigError ?? 'Supabase is not available.');
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 
 interface Topic {
   id: string;
@@ -15,6 +15,9 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+    if (supabaseConfigError || !supabase) {
+      return;
+    }
     // Fetch the current user if logged in
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
@@ -23,10 +26,25 @@ export default function Home() {
   }, []);
 
   async function fetchTopics() {
+    if (supabaseConfigError || !supabase) {
+      return;
+    }
     const { data, error } = await supabase.from('topics').select('*');
     if (!error && data) {
       setTopics(data as Topic[]);
     }
+  }
+
+  if (supabaseConfigError) {
+    return (
+      <main>
+        <h1>Welcome to uMakhi</h1>
+        <p>{supabaseConfigError}</p>
+        <p>
+          Please add your Supabase credentials, then refresh this page.
+        </p>
+      </main>
+    );
   }
 
   if (!user) {

@@ -36,6 +36,11 @@ export type TopicNotes = {
   summary: LocalizedText[];
 };
 
+export type VoiceContent = {
+  script: LocalizedText;
+  audioUrl?: string;
+};
+
 export type TopicContent = {
   id: string;
   title: LocalizedText;
@@ -59,6 +64,7 @@ export type TopicContent = {
     weakAreas: LocalizedText[];
     nextSteps: LocalizedText[];
   };
+  voice?: VoiceContent;
 };
 
 const visuals = {
@@ -394,6 +400,12 @@ export const topics: TopicContent[] = [
       nextSteps: [
         { en: 'Revise inverse steps and domain restrictions.', zu: 'Buyekeza izinyathelo ze-inverse nokuvinjelwa kwe-domain.' },
       ],
+    },
+    voice: {
+      script: {
+        en: 'Think of a function as a machine: you put in x, follow the rule, and read off y. In this topic we look at common function families, how the graph shifts, and why the domain and range matter.',
+        zu: 'Cabanga ngomsebenzi njengomshini: ufaka u-x, ulandele umthetho, bese uthola u-y. Kulesi sihloko sibheka izinhlobo zemisebenzi, ukushintsha kwegrafu, nokubaluleka kwe-domain ne-range.',
+      },
     },
   },
   {

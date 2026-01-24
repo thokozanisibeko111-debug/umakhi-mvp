@@ -17,14 +17,43 @@ export default function AdminPage() {
   const [description, setDescription] = useState('');
   const [paper, setPaper] = useState<1 | 2>(1);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (supabaseConfigError) {
-      setError(supabaseConfigError);
-      return;
+    async function checkAccess() {
+      if (supabaseConfigError) {
+        setError(supabaseConfigError);
+        setIsAuthorized(false);
+        return;
+      }
+      if (!supabase) {
+        setError('Supabase client is not available.');
+        setIsAuthorized(false);
+        return;
+      }
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        setError('Please log in as an admin to access this workspace.');
+        setIsAuthorized(false);
+        return;
+      }
+      const role = data.user.user_metadata?.role;
+      if (role !== 'admin') {
+        setError('This workspace is only available to admin accounts.');
+        setIsAuthorized(false);
+        return;
+      }
+      setIsAuthorized(true);
     }
-    fetchTopics();
+
+    checkAccess();
   }, []);
+
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchTopics();
+    }
+  }, [isAuthorized]);
 
   async function fetchTopics() {
     if (!supabase) {
@@ -65,67 +94,94 @@ export default function AdminPage() {
           assessment control.
         </p>
       </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Create Topic</h2>
-          <span className="badge">Curriculum focus</span>
-        </div>
-        <form onSubmit={handleCreateTopic}>
-          <label>
-            Paper
-            <select value={paper} onChange={(e) => setPaper(Number(e.target.value) as 1 | 2)}>
-              <option value={1}>Paper 1</option>
-              <option value={2}>Paper 2</option>
-            </select>
-          </label>
-          <label>
-            Title
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Description
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Short overview for learners"
-            />
-          </label>
-          <button className="btn-primary" type="submit">
-            Create
-          </button>
+      {isAuthorized === null ? (
+        <section className="card">
+          <div className="section-header">
+            <h2>Checking access</h2>
+            <span className="badge">Please wait</span>
+          </div>
+          <p className="muted">Confirming your admin access.</p>
+        </section>
+      ) : isAuthorized ? (
+        <>
+          <section className="card">
+            <div className="section-header">
+              <h2>Create Topic</h2>
+              <span className="badge">Curriculum focus</span>
+            </div>
+            <form onSubmit={handleCreateTopic}>
+              <label>
+                Paper
+                <select value={paper} onChange={(e) => setPaper(Number(e.target.value) as 1 | 2)}>
+                  <option value={1}>Paper 1</option>
+                  <option value={2}>Paper 2</option>
+                </select>
+              </label>
+              <label>
+                Title
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Short overview for learners"
+                />
+              </label>
+              <button className="btn-primary" type="submit">
+                Create
+              </button>
+              {error && <p className="error-banner">{error}</p>}
+            </form>
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Existing Topics</h2>
+              <span className="badge">Manage content</span>
+            </div>
+            {topics.length === 0 ? (
+              <p className="muted">No topics yet.</p>
+            ) : (
+              <ul className="list">
+                {topics.map((topic) => (
+                  <li className="list-item" key={topic.id}>
+                    <div className="list-item-header">
+                      <h3>{topic.title}</h3>
+                      {topic.paper && <span className="badge">Paper {topic.paper}</span>}
+                    </div>
+                    {topic.description && <p className="muted">{topic.description}</p>}
+                    <Link className="nav-link" href={`/admin/topics/${topic.id}`}>
+                      Manage topic
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="card">
+          <div className="section-header">
+            <h2>Admin access required</h2>
+            <span className="badge">Restricted</span>
+          </div>
+          <p className="muted">
+            This workspace is reserved for admin accounts. Please log in with an admin profile to
+            continue.
+          </p>
           {error && <p className="error-banner">{error}</p>}
-        </form>
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Existing Topics</h2>
-          <span className="badge">Manage content</span>
-        </div>
-        {topics.length === 0 ? (
-          <p className="muted">No topics yet.</p>
-        ) : (
-          <ul className="list">
-          {topics.map((topic) => (
-            <li className="list-item" key={topic.id}>
-              <div className="list-item-header">
-                <h3>{topic.title}</h3>
-                {topic.paper && <span className="badge">Paper {topic.paper}</span>}
-              </div>
-              {topic.description && <p className="muted">{topic.description}</p>}
-              <Link className="nav-link" href={`/admin/topics/${topic.id}`}>
-                Manage topic
-              </Link>
-            </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <Link className="btn-primary" href="/login?role=admin">
+            Go to admin login
+          </Link>
+        </section>
+      )}
     </main>
   );
 }

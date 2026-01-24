@@ -1,27 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function Login() {
+  const [role, setRole] = useState<'learner' | 'admin'>('learner');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const roleParam = searchParams.get('role');
+    if (roleParam === 'admin' || roleParam === 'learner') {
+      setRole(roleParam);
+    }
+  }, [searchParams]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (!role) {
+      setError('Please select whether you are logging in as a learner or an admin.');
+      return;
+    }
     if (supabaseConfigError || !supabase) {
       setError(supabaseConfigError ?? 'Supabase is not available.');
       return;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
     } else {
-      // reload page to get user
-      window.location.href = '/';
+      const userRole = data.user?.user_metadata?.role;
+      if (userRole !== role) {
+        await supabase.auth.signOut();
+        setError(
+          role === 'admin'
+            ? 'This account is not registered as an admin.'
+            : 'This account is not registered as a learner.'
+        );
+        return;
+      }
+      window.location.href = role === 'admin' ? '/admin' : '/';
     }
   }
 
@@ -60,6 +83,31 @@ export default function Login() {
           <span className="badge">Secure access</span>
         </div>
         <form onSubmit={handleLogin}>
+          <fieldset className="role-switch">
+            <legend>I am logging in as</legend>
+            <div className="role-options">
+              <label className="role-option">
+                <input
+                  type="radio"
+                  name="role"
+                  value="learner"
+                  checked={role === 'learner'}
+                  onChange={() => setRole('learner')}
+                />
+                Learner
+              </label>
+              <label className="role-option">
+                <input
+                  type="radio"
+                  name="role"
+                  value="admin"
+                  checked={role === 'admin'}
+                  onChange={() => setRole('admin')}
+                />
+                Admin
+              </label>
+            </div>
+          </fieldset>
           <label>
             Email
             <input

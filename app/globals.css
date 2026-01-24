@@ -75,20 +75,20 @@ main {
 
 .brand {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
 }
 
-.brand-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--primary-dark);
+.logo-link {
+  display: inline-flex;
+  align-items: center;
 }
 
-.brand-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
+.logo-image {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
 }
+
 
 .nav-links {
   display: flex;

@@ -711,6 +711,18 @@ button:disabled {
   padding: 1rem;
 }
 
+.audio-player {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.voice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .visual-frame {
   margin-top: 0.75rem;
   display: flex;

@@ -49,6 +49,10 @@ export default function AdminTopicPage() {
   const [visualFile, setVisualFile] = useState<File | null>(null);
   const [contentRowId, setContentRowId] = useState<string | null>(null);
   const [contentDraft, setContentDraft] = useState('');
+  const [voiceScript, setVoiceScript] = useState('');
+  const [voiceAudioUrl, setVoiceAudioUrl] = useState('');
+  const [voiceAudioFile, setVoiceAudioFile] = useState<File | null>(null);
+  const [isVoicePreviewing, setIsVoicePreviewing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('#4f46e5');
@@ -148,7 +152,105 @@ export default function AdminTopicPage() {
     if (!error && data) {
       setContentRowId(data.id);
       setContentDraft(data.content ?? '');
+      const parsed = parseContentDraft(data.content ?? '');
+      if (parsed?.voice?.script) {
+        setVoiceScript(parsed.voice.script);
+      }
+      if (parsed?.voice?.audioUrl) {
+        setVoiceAudioUrl(parsed.voice.audioUrl);
+      }
     }
+  }
+
+  function parseContentDraft(draft: string) {
+    if (!draft) {
+      return null;
+    }
+    try {
+      return JSON.parse(draft);
+    } catch (parseError) {
+      return null;
+    }
+  }
+
+  function buildTopicTemplate() {
+    return JSON.stringify(
+      {
+        title: topicTitle || 'New topic title',
+        description: topicDescription || 'Add a learner-friendly description.',
+        paper: topicPaper,
+        introduction: {
+          outcomes: ['Outcome 1', 'Outcome 2', 'Outcome 3'],
+          importance: 'Explain why this topic matters.',
+          starterExample: {
+            question: 'Starter question',
+            steps: ['Step 1', 'Step 2'],
+            answer: 'Final answer',
+            why: 'Why this works.',
+          },
+        },
+        notes: {
+          intro: 'Short intro to the notes section.',
+          sections: [
+            { title: 'Concept 1', content: ['Key idea', 'Second idea'] },
+            { title: 'Concept 2', content: ['Key idea', 'Second idea'] },
+          ],
+          formulas: ['Formula 1', 'Formula 2'],
+          commonMistakes: ['Common mistake 1', 'Common mistake 2'],
+          examTips: ['Exam tip 1', 'Exam tip 2'],
+          summary: ['Summary point 1', 'Summary point 2'],
+        },
+        visuals: [
+          { title: 'Visual title', description: 'Short description', svg: '<svg></svg>' },
+        ],
+        examples: {
+          Easy: [
+            { question: 'Easy question', steps: ['Step 1'], answer: 'Answer', why: 'Why it works' },
+          ],
+          Medium: [
+            {
+              question: 'Medium question',
+              steps: ['Step 1', 'Step 2'],
+              answer: 'Answer',
+              why: 'Why it works',
+            },
+          ],
+          Hard: [
+            {
+              question: 'Hard question',
+              steps: ['Step 1', 'Step 2', 'Step 3'],
+              answer: 'Answer',
+              why: 'Why it works',
+            },
+          ],
+        },
+        quizzes: [
+          {
+            question: 'Quiz question',
+            options: ['A', 'B', 'C', 'D'],
+            correctIndex: 0,
+            solution: 'Explain the solution.',
+            feedback: 'Short feedback.',
+            difficulty: 'Easy',
+          },
+        ],
+        videos: [
+          { title: 'Video title', url: 'https://', description: 'Video summary' },
+        ],
+        askPrompts: ['Ask prompt 1', 'Ask prompt 2'],
+        progress: {
+          strengths: ['Strength 1'],
+          weakAreas: ['Weak area 1'],
+          nextSteps: ['Next step 1'],
+        },
+        voice: {
+          script: voiceScript || 'Short voice explanation for learners.',
+          audioUrl: voiceAudioUrl || '',
+        },
+      },
+      null,
+      2
+    );
   }
 
   async function handleUpdateTopic(e: FormEvent) {
@@ -398,10 +500,20 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    let updatedDraft = contentDraft;
+    const parsed = parseContentDraft(contentDraft);
+    if (parsed) {
+      parsed.voice = {
+        script: voiceScript || parsed.voice?.script || '',
+        audioUrl: voiceAudioUrl || parsed.voice?.audioUrl || '',
+      };
+      updatedDraft = JSON.stringify(parsed, null, 2);
+      setContentDraft(updatedDraft);
+    }
     if (contentRowId) {
       const { error } = await supabase
         .from('topic_content')
-        .update({ content: contentDraft })
+        .update({ content: updatedDraft })
         .eq('id', contentRowId);
       if (error) {
         setError(error.message);
@@ -409,7 +521,7 @@ export default function AdminTopicPage() {
     } else {
       const { data, error } = await supabase
         .from('topic_content')
-        .insert({ topic_id: topicId, content: contentDraft })
+        .insert({ topic_id: topicId, content: updatedDraft })
         .select()
         .single();
       if (error) {
@@ -418,6 +530,58 @@ export default function AdminTopicPage() {
         setContentRowId(data.id);
       }
     }
+  }
+
+  async function handleVoiceUpload(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!voiceAudioFile) {
+      setError('Select an audio file to upload.');
+      return;
+    }
+    const filePath = `${topicId}/${Date.now()}-${voiceAudioFile.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('voice')
+      .upload(filePath, voiceAudioFile, { contentType: voiceAudioFile.type });
+    if (uploadError) {
+      setError(uploadError.message);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('voice').getPublicUrl(filePath);
+    setVoiceAudioUrl(urlData?.publicUrl ?? '');
+  }
+
+  function handleVoiceFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setVoiceAudioFile(files[0]);
+    }
+  }
+
+  function previewVoiceScript() {
+    if (!voiceScript) {
+      return;
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(voiceScript);
+    utterance.onend = () => setIsVoicePreviewing(false);
+    window.speechSynthesis.cancel();
+    setIsVoicePreviewing(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopVoicePreview() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setIsVoicePreviewing(false);
   }
 
   return (
@@ -485,6 +649,13 @@ export default function AdminTopicPage() {
               Paste or edit structured JSON for introductions, notes, worked examples, and prompts.
               This keeps the topic content editable in one place.
             </p>
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => setContentDraft(buildTopicTemplate())}
+            >
+              Load full topic template
+            </button>
             <form onSubmit={handleSaveContent}>
               <label>
                 Topic content JSON
@@ -574,6 +745,65 @@ export default function AdminTopicPage() {
                 ))}
               </ul>
             )}
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Voice narration</h2>
+              <span className="badge">Audio support</span>
+            </div>
+            <form className="split-form" onSubmit={handleVoiceUpload}>
+              <label>
+                Voice script
+                <textarea
+                  value={voiceScript}
+                  onChange={(e) => setVoiceScript(e.target.value)}
+                  rows={4}
+                  placeholder="Short narration script for learners"
+                />
+              </label>
+              <label>
+                Audio URL
+                <input
+                  type="url"
+                  value={voiceAudioUrl}
+                  onChange={(e) => setVoiceAudioUrl(e.target.value)}
+                  placeholder="https://"
+                />
+              </label>
+              <label>
+                Upload narration audio
+                <input type="file" accept="audio/*" onChange={handleVoiceFileChange} />
+              </label>
+              <div className="voice-controls">
+                <button className="btn-primary" type="submit">
+                  Upload audio
+                </button>
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={previewVoiceScript}
+                  disabled={isVoicePreviewing || !voiceScript}
+                >
+                  {isVoicePreviewing ? 'Previewing…' : 'Preview script'}
+                </button>
+                <button
+                  className="btn-tertiary"
+                  type="button"
+                  onClick={stopVoicePreview}
+                  disabled={!isVoicePreviewing}
+                >
+                  Stop
+                </button>
+              </div>
+            </form>
+            {voiceAudioUrl && (
+              <audio className="audio-player" controls src={voiceAudioUrl}>
+                <track kind="captions" />
+              </audio>
+            )}
+            <p className="muted" style={{ marginTop: '0.75rem' }}>
+              Voice narration is saved in the topic content JSON when you click “Save content.”
+            </p>
           </section>
           <section className="card">
             <div className="section-header">

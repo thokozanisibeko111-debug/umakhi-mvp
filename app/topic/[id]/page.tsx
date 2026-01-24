@@ -34,6 +34,7 @@ export default function TopicPage() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!topic) {
     return (
@@ -60,6 +61,28 @@ export default function TopicPage() {
     const data = await res.json();
     setAnswer(data.answer);
     setLoadingAnswer(false);
+  }
+
+  function playVoiceExplanation() {
+    if (!topic?.voice?.script) {
+      return;
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(getText(topic.voice.script, language));
+    utterance.onend = () => setIsSpeaking(false);
+    window.speechSynthesis.cancel();
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopVoiceExplanation() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
   }
 
   const quizzesByDifficulty = groupByDifficulty(topic.quizzes);
@@ -258,6 +281,40 @@ export default function TopicPage() {
           ))}
         </ul>
       </section>
+
+      {topic.voice && (
+        <section className="card">
+          <div className="section-header">
+            <h2>Voice explainer</h2>
+            <span className="badge">Audio guidance</span>
+          </div>
+          <p className="muted">{getText(topic.voice.script, language)}</p>
+          {topic.voice.audioUrl ? (
+            <audio className="audio-player" controls src={topic.voice.audioUrl}>
+              <track kind="captions" />
+            </audio>
+          ) : (
+            <div className="voice-controls">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={playVoiceExplanation}
+                disabled={isSpeaking}
+              >
+                {isSpeaking ? 'Playing…' : 'Play voice explanation'}
+              </button>
+              <button
+                className="btn-tertiary"
+                type="button"
+                onClick={stopVoiceExplanation}
+                disabled={!isSpeaking}
+              >
+                Stop
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="section-header">

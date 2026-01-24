@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, ChangeEvent, FormEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
+import Link from 'next/link';
 
 interface Topic {
   id: string;
@@ -53,20 +54,47 @@ export default function AdminTopicPage() {
   const [drawColor, setDrawColor] = useState('#4f46e5');
   const [drawSize, setDrawSize] = useState(4);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (supabaseConfigError) {
-      setError(supabaseConfigError);
-      return;
+    async function checkAccess() {
+      if (supabaseConfigError) {
+        setError(supabaseConfigError);
+        setIsAuthorized(false);
+        return;
+      }
+      if (!supabase) {
+        setError('Supabase client is not available.');
+        setIsAuthorized(false);
+        return;
+      }
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        setError('Please log in as an admin to access this workspace.');
+        setIsAuthorized(false);
+        return;
+      }
+      const role = data.user.user_metadata?.role;
+      if (role !== 'admin') {
+        setError('This workspace is only available to admin accounts.');
+        setIsAuthorized(false);
+        return;
+      }
+      setIsAuthorized(true);
     }
-    if (topicId) {
+
+    checkAccess();
+  }, [topicId]);
+
+  useEffect(() => {
+    if (isAuthorized && topicId) {
       fetchTopic();
       fetchVideos();
       fetchQuizzes();
       fetchVisuals();
       fetchTopicContent();
     }
-  }, [topicId]);
+  }, [isAuthorized, topicId]);
 
   async function fetchTopic() {
     if (!supabase) {
@@ -399,263 +427,304 @@ export default function AdminTopicPage() {
         <h1>Manage topic assets</h1>
         <p>Update lesson content, manage videos, and build visuals that make each topic clearer.</p>
       </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Topic Overview</h2>
-          <span className="badge">Edit content</span>
-        </div>
-        <form onSubmit={handleUpdateTopic}>
-          <label>
-            Paper
-            <select value={topicPaper} onChange={(e) => setTopicPaper(Number(e.target.value) as 1 | 2)}>
-              <option value={1}>Paper 1</option>
-              <option value={2}>Paper 2</option>
-            </select>
-          </label>
-          <label>
-            Title
-            <input
-              type="text"
-              value={topicTitle}
-              onChange={(e) => setTopicTitle(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Description
-            <textarea
-              value={topicDescription}
-              onChange={(e) => setTopicDescription(e.target.value)}
-              rows={3}
-              placeholder="Short overview for learners"
-            />
-          </label>
-          <button className="btn-primary" type="submit">
-            Save topic changes
-          </button>
-        </form>
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Topic Content</h2>
-          <span className="badge">Full access</span>
-        </div>
-        <p className="muted">
-          Paste or edit structured JSON for introductions, notes, worked examples, and prompts. This keeps the topic
-          content editable in one place.
-        </p>
-        <form onSubmit={handleSaveContent}>
-          <label>
-            Topic content JSON
-            <textarea
-              value={contentDraft}
-              onChange={(e) => setContentDraft(e.target.value)}
-              rows={10}
-              placeholder='{"intro": "..."}'
-            />
-          </label>
-          <button className="btn-primary" type="submit">
-            Save content
-          </button>
-        </form>
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Upload Video</h2>
-          <span className="badge">Add media</span>
-        </div>
-        <form onSubmit={handleVideoUpload}>
-          <label>
-            Title
-            <input
-              type="text"
-              value={videoTitle}
-              onChange={(e) => setVideoTitle(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            File
-            <input type="file" accept="video/*" onChange={handleFileChange} />
-          </label>
-          <button className="btn-primary" type="submit">
-            Upload
-          </button>
-        </form>
-        <form className="split-form" onSubmit={handleVideoLink}>
-          <label>
-            Video link title
-            <input
-              type="text"
-              value={videoTitle}
-              onChange={(e) => setVideoTitle(e.target.value)}
-              placeholder="Video title"
-            />
-          </label>
-          <label>
-            Video URL
-            <input
-              type="url"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://"
-              required
-            />
-          </label>
-          <button className="btn-secondary" type="submit">
-            Add link
-          </button>
-        </form>
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Existing Videos</h2>
-          <span className="badge">Library</span>
-        </div>
-        {videos.length === 0 ? (
-          <p className="muted">No videos yet.</p>
-        ) : (
-          <ul className="list">
-            {videos.map((video) => (
-              <li className="list-item" key={video.id}>
-                <div className="list-item-header">
-                  <h3>{video.title}</h3>
-                  <button className="btn-tertiary" type="button" onClick={() => handleDeleteVideo(video.id)}>
-                    Remove
-                  </button>
-                </div>
-                <p className="muted">{video.url}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Visuals &amp; Drawings</h2>
-          <span className="badge">Pictures &amp; sketches</span>
-        </div>
-        <div className="visuals-grid">
-          <form onSubmit={handleUploadVisual}>
-            <label>
-              Visual title
-              <input
-                type="text"
-                value={visualTitle}
-                onChange={(e) => setVisualTitle(e.target.value)}
-                placeholder="Graph or diagram"
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                value={visualDescription}
-                onChange={(e) => setVisualDescription(e.target.value)}
-                rows={2}
-                placeholder="Short description"
-              />
-            </label>
-            <label>
-              Upload image
-              <input type="file" accept="image/*" onChange={handleVisualFileChange} />
-            </label>
-            <button className="btn-primary" type="submit">
-              Upload visual
-            </button>
-          </form>
-          <div className="draw-panel">
-            <h3>Draw a visual</h3>
-            <div className="draw-controls">
+      {isAuthorized === null ? (
+        <section className="card">
+          <div className="section-header">
+            <h2>Checking access</h2>
+            <span className="badge">Please wait</span>
+          </div>
+          <p className="muted">Confirming your admin access.</p>
+        </section>
+      ) : isAuthorized ? (
+        <>
+          <section className="card">
+            <div className="section-header">
+              <h2>Topic Overview</h2>
+              <span className="badge">Edit content</span>
+            </div>
+            <form onSubmit={handleUpdateTopic}>
               <label>
-                Color
-                <input type="color" value={drawColor} onChange={(e) => setDrawColor(e.target.value)} />
+                Paper
+                <select
+                  value={topicPaper}
+                  onChange={(e) => setTopicPaper(Number(e.target.value) as 1 | 2)}
+                >
+                  <option value={1}>Paper 1</option>
+                  <option value={2}>Paper 2</option>
+                </select>
               </label>
               <label>
-                Brush
+                Title
                 <input
-                  type="range"
-                  min={2}
-                  max={12}
-                  value={drawSize}
-                  onChange={(e) => setDrawSize(Number(e.target.value))}
+                  type="text"
+                  value={topicTitle}
+                  onChange={(e) => setTopicTitle(e.target.value)}
+                  required
                 />
               </label>
-              <button className="btn-tertiary" type="button" onClick={clearCanvas}>
-                Clear
+              <label>
+                Description
+                <textarea
+                  value={topicDescription}
+                  onChange={(e) => setTopicDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Short overview for learners"
+                />
+              </label>
+              <button className="btn-primary" type="submit">
+                Save topic changes
               </button>
+            </form>
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Topic Content</h2>
+              <span className="badge">Full access</span>
             </div>
-            <canvas
-              ref={canvasRef}
-              width={460}
-              height={220}
-              className="draw-canvas"
-              onPointerDown={startDrawing}
-              onPointerMove={draw}
-              onPointerUp={stopDrawing}
-              onPointerLeave={stopDrawing}
-            />
-            <button className="btn-secondary" type="button" onClick={saveCanvasDrawing}>
-              Save drawing
-            </button>
-          </div>
-        </div>
-        {visuals.length === 0 ? (
-          <p className="muted">No visuals yet.</p>
-        ) : (
-          <ul className="list">
-            {visuals.map((visual) => (
-              <li className="list-item" key={visual.id}>
-                <div className="list-item-header">
-                  <h3>{visual.title}</h3>
-                  <button className="btn-tertiary" type="button" onClick={() => handleDeleteVisual(visual.id)}>
-                    Remove
+            <p className="muted">
+              Paste or edit structured JSON for introductions, notes, worked examples, and prompts.
+              This keeps the topic content editable in one place.
+            </p>
+            <form onSubmit={handleSaveContent}>
+              <label>
+                Topic content JSON
+                <textarea
+                  value={contentDraft}
+                  onChange={(e) => setContentDraft(e.target.value)}
+                  rows={10}
+                  placeholder='{"intro": "..."}'
+                />
+              </label>
+              <button className="btn-primary" type="submit">
+                Save content
+              </button>
+            </form>
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Upload Video</h2>
+              <span className="badge">Add media</span>
+            </div>
+            <form onSubmit={handleVideoUpload}>
+              <label>
+                Title
+                <input
+                  type="text"
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                File
+                <input type="file" accept="video/*" onChange={handleFileChange} />
+              </label>
+              <button className="btn-primary" type="submit">
+                Upload
+              </button>
+            </form>
+            <form className="split-form" onSubmit={handleVideoLink}>
+              <label>
+                Video link title
+                <input
+                  type="text"
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                  placeholder="Video title"
+                />
+              </label>
+              <label>
+                Video URL
+                <input
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://"
+                  required
+                />
+              </label>
+              <button className="btn-secondary" type="submit">
+                Add link
+              </button>
+            </form>
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Existing Videos</h2>
+              <span className="badge">Library</span>
+            </div>
+            {videos.length === 0 ? (
+              <p className="muted">No videos yet.</p>
+            ) : (
+              <ul className="list">
+                {videos.map((video) => (
+                  <li className="list-item" key={video.id}>
+                    <div className="list-item-header">
+                      <h3>{video.title}</h3>
+                      <button
+                        className="btn-tertiary"
+                        type="button"
+                        onClick={() => handleDeleteVideo(video.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <p className="muted">{video.url}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Visuals &amp; Drawings</h2>
+              <span className="badge">Pictures &amp; sketches</span>
+            </div>
+            <div className="visuals-grid">
+              <form onSubmit={handleUploadVisual}>
+                <label>
+                  Visual title
+                  <input
+                    type="text"
+                    value={visualTitle}
+                    onChange={(e) => setVisualTitle(e.target.value)}
+                    placeholder="Graph or diagram"
+                  />
+                </label>
+                <label>
+                  Description
+                  <textarea
+                    value={visualDescription}
+                    onChange={(e) => setVisualDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Short description"
+                  />
+                </label>
+                <label>
+                  Upload image
+                  <input type="file" accept="image/*" onChange={handleVisualFileChange} />
+                </label>
+                <button className="btn-primary" type="submit">
+                  Upload visual
+                </button>
+              </form>
+              <div className="draw-panel">
+                <h3>Draw a visual</h3>
+                <div className="draw-controls">
+                  <label>
+                    Color
+                    <input
+                      type="color"
+                      value={drawColor}
+                      onChange={(e) => setDrawColor(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Brush
+                    <input
+                      type="range"
+                      min={2}
+                      max={12}
+                      value={drawSize}
+                      onChange={(e) => setDrawSize(Number(e.target.value))}
+                    />
+                  </label>
+                  <button className="btn-tertiary" type="button" onClick={clearCanvas}>
+                    Clear
                   </button>
                 </div>
-                {visual.description && <p className="muted">{visual.description}</p>}
-                {visual.image_url && (
-                  <img className="visual-preview" src={visual.image_url} alt={visual.title} />
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section className="card">
-        <div className="section-header">
-          <h2>Create Quiz</h2>
-          <span className="badge">Assessments</span>
-        </div>
-        <form onSubmit={handleCreateQuiz}>
-          <label>
-            Quiz Title
-            <input
-              type="text"
-              value={quizTitle}
-              onChange={(e) => setQuizTitle(e.target.value)}
-              required
-            />
-          </label>
-          <button className="btn-primary" type="submit">
-            Create Quiz
-          </button>
-        </form>
-        <div style={{ marginTop: '1.5rem' }}>
-          <h3>Existing Quizzes</h3>
-          {quizzes.length === 0 ? (
-            <p className="muted">No quizzes yet.</p>
-          ) : (
-            <ul className="list">
-              {quizzes.map((quiz) => (
-                <li className="list-item" key={quiz.id}>
-                  <h3>{quiz.title}</h3>
-                  <p className="muted">Quiz ready for learners</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-      {error && <p className="error-banner">{error}</p>}
+                <canvas
+                  ref={canvasRef}
+                  width={460}
+                  height={220}
+                  className="draw-canvas"
+                  onPointerDown={startDrawing}
+                  onPointerMove={draw}
+                  onPointerUp={stopDrawing}
+                  onPointerLeave={stopDrawing}
+                />
+                <button className="btn-secondary" type="button" onClick={saveCanvasDrawing}>
+                  Save drawing
+                </button>
+              </div>
+            </div>
+            {visuals.length === 0 ? (
+              <p className="muted">No visuals yet.</p>
+            ) : (
+              <ul className="list">
+                {visuals.map((visual) => (
+                  <li className="list-item" key={visual.id}>
+                    <div className="list-item-header">
+                      <h3>{visual.title}</h3>
+                      <button
+                        className="btn-tertiary"
+                        type="button"
+                        onClick={() => handleDeleteVisual(visual.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {visual.description && <p className="muted">{visual.description}</p>}
+                    {visual.image_url && (
+                      <img className="visual-preview" src={visual.image_url} alt={visual.title} />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Create Quiz</h2>
+              <span className="badge">Assessments</span>
+            </div>
+            <form onSubmit={handleCreateQuiz}>
+              <label>
+                Quiz Title
+                <input
+                  type="text"
+                  value={quizTitle}
+                  onChange={(e) => setQuizTitle(e.target.value)}
+                  required
+                />
+              </label>
+              <button className="btn-primary" type="submit">
+                Create Quiz
+              </button>
+            </form>
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3>Existing Quizzes</h3>
+              {quizzes.length === 0 ? (
+                <p className="muted">No quizzes yet.</p>
+              ) : (
+                <ul className="list">
+                  {quizzes.map((quiz) => (
+                    <li className="list-item" key={quiz.id}>
+                      <h3>{quiz.title}</h3>
+                      <p className="muted">Quiz ready for learners</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+          {error && <p className="error-banner">{error}</p>}
+        </>
+      ) : (
+        <section className="card">
+          <div className="section-header">
+            <h2>Admin access required</h2>
+            <span className="badge">Restricted</span>
+          </div>
+          <p className="muted">
+            Only admin accounts can edit topic content. Please sign in with an admin profile.
+          </p>
+          {error && <p className="error-banner">{error}</p>}
+          <Link className="btn-primary" href="/login?role=admin">
+            Go to admin login
+          </Link>
+        </section>
+      )}
     </main>
   );
 }

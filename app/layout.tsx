@@ -15,8 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="top-bar">
             <div className="top-bar-content">
               <div className="brand">
-                <span className="brand-title">uMakhi</span>
-                <span className="brand-subtitle">Grade 12 Mathematics • CAPS</span>
+                <Link className="logo-link" href="/">
+                  <img className="logo-image" src="/logo.svg" alt="uMakhi logo" />
+                </Link>
               </div>
               <nav className="nav-links">
                 <Link className="nav-link" href="/">

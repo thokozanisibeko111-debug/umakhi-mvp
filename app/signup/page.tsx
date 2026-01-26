@@ -15,10 +15,12 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     if (!role) {
       setError('Please select whether you are signing up as a learner or an admin.');
       return;
@@ -27,7 +29,7 @@ export default function Signup() {
       setError(supabaseConfigError ?? 'Supabase is not available.');
       return;
     }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -45,9 +47,11 @@ export default function Signup() {
     if (error) {
       setError(error.message);
     } else {
-      // On successful sign up the user must confirm email before sign in
-      alert('Check your email for a confirmation link.');
-      window.location.href = `/login?role=${role}`;
+      if (data.session) {
+        window.location.href = `/login?role=${role}`;
+        return;
+      }
+      setSuccessMessage('Check your email for a confirmation link before logging in.');
     }
   }
 
@@ -180,6 +184,7 @@ export default function Signup() {
           <button className="btn-primary" type="submit">
             Sign up
           </button>
+          {successMessage && <p className="success-banner">{successMessage}</p>}
           {error && <p className="error-banner">{error}</p>}
         </form>
         <p className="muted">

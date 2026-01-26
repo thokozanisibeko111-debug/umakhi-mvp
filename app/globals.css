@@ -619,6 +619,14 @@ button:disabled {
   font-weight: 600;
 }
 
+.success-banner {
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--secondary-dark);
+  font-weight: 600;
+}
+
 .error-banner {
   padding: 0.8rem 1rem;
   border-radius: 12px;

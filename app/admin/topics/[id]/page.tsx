@@ -43,6 +43,10 @@ export default function AdminTopicPage() {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [recordingTitle, setRecordingTitle] = useState('');
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedPreviewUrl, setRecordedPreviewUrl] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   const [quizTitle, setQuizTitle] = useState('');
   const [visualTitle, setVisualTitle] = useState('');
   const [visualDescription, setVisualDescription] = useState('');
@@ -59,6 +63,9 @@ export default function AdminTopicPage() {
   const [drawSize, setDrawSize] = useState(4);
   const [error, setError] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     async function checkAccess() {
@@ -99,6 +106,14 @@ export default function AdminTopicPage() {
       fetchTopicContent();
     }
   }, [isAuthorized, topicId]);
+
+  useEffect(() => {
+    return () => {
+      if (recordedPreviewUrl) {
+        URL.revokeObjectURL(recordedPreviewUrl);
+      }
+    };
+  }, [recordedPreviewUrl]);
 
   async function fetchTopic() {
     if (!supabase) {
@@ -282,30 +297,10 @@ export default function AdminTopicPage() {
       setError('Please select a video file.');
       return;
     }
-    // Upload file to Supabase storage
-    const fileExt = videoFile.name.split('.').pop();
-    const filePath = `${topicId}/${Date.now()}.${fileExt}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('videos')
-      .upload(filePath, videoFile, { contentType: videoFile.type });
-    if (uploadError) {
-      setError(uploadError.message);
-      return;
-    }
-    // Generate a public URL
-    const { data: urlData } = supabase.storage.from('videos').getPublicUrl(filePath);
-    const publicUrl = urlData?.publicUrl;
-    // Insert into videos table
-    const { error: insertError } = await supabase
-      .from('videos')
-      .insert({ title: videoTitle, topic_id: topicId, url: publicUrl });
-    if (insertError) {
-      setError(insertError.message);
-    } else {
-      setVideoTitle('');
-      setVideoFile(null);
-      fetchVideos();
-    }
+    const filePath = `${topicId}/${Date.now()}-${videoFile.name}`;
+    await uploadVideoAsset(videoFile, filePath, videoTitle);
+    setVideoTitle('');
+    setVideoFile(null);
   }
 
   async function handleVideoLink(e: FormEvent) {
@@ -336,6 +331,119 @@ export default function AdminTopicPage() {
     if (files && files.length > 0) {
       setVideoFile(files[0]);
     }
+  }
+
+  function getFileExtensionFromMime(mimeType: string) {
+    if (!mimeType) {
+      return 'webm';
+    }
+    const [type, subtype] = mimeType.split('/');
+    if (!type || !subtype) {
+      return 'webm';
+    }
+    return subtype.split(';')[0] || 'webm';
+  }
+
+  async function uploadVideoAsset(file: Blob, filePath: string, title: string) {
+    if (!supabase) {
+      setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    const { error: uploadError } = await supabase.storage
+      .from('videos')
+      .upload(filePath, file, { contentType: file.type || 'video/webm' });
+    if (uploadError) {
+      setError(uploadError.message);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('videos').getPublicUrl(filePath);
+    const publicUrl = urlData?.publicUrl;
+    const { error: insertError } = await supabase
+      .from('videos')
+      .insert({ title: title || 'Video upload', topic_id: topicId, url: publicUrl });
+    if (insertError) {
+      setError(insertError.message);
+    } else {
+      fetchVideos();
+    }
+  }
+
+  async function startRecording() {
+    setError(null);
+    if (isRecording) {
+      return;
+    }
+    if (
+      typeof window === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setError('Recording is not supported in this browser.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      mediaStreamRef.current = stream;
+      recordingChunksRef.current = [];
+      if (recordedPreviewUrl) {
+        URL.revokeObjectURL(recordedPreviewUrl);
+      }
+      setRecordedPreviewUrl('');
+      setRecordedBlob(null);
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || 'video/webm';
+        const recordingBlob = new Blob(recordingChunksRef.current, { type: mimeType });
+        setRecordedBlob(recordingBlob);
+        setRecordedPreviewUrl(URL.createObjectURL(recordingBlob));
+        setIsRecording(false);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (recordError) {
+      setError('Unable to access your camera or microphone.');
+    }
+  }
+
+  function stopRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) {
+      return;
+    }
+    if (recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
+
+  function resetRecording() {
+    if (recordedPreviewUrl) {
+      URL.revokeObjectURL(recordedPreviewUrl);
+    }
+    setRecordedPreviewUrl('');
+    setRecordedBlob(null);
+    setRecordingTitle('');
+    recordingChunksRef.current = [];
+  }
+
+  async function handleRecordedUpload(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!recordedBlob) {
+      setError('Record a video before uploading.');
+      return;
+    }
+    const extension = getFileExtensionFromMime(recordedBlob.type);
+    const filePath = `${topicId}/${Date.now()}-recording.${extension}`;
+    await uploadVideoAsset(recordedBlob, filePath, recordingTitle || 'Recorded video');
+    resetRecording();
   }
 
   async function handleDeleteVideo(videoId: string) {
@@ -673,12 +781,16 @@ export default function AdminTopicPage() {
           </section>
           <section className="card">
             <div className="section-header">
-              <h2>Upload Video</h2>
-              <span className="badge">Add media</span>
+              <h2>Add Video</h2>
+              <span className="badge">Files, links, recording</span>
             </div>
+            <p className="muted">
+              Add videos from files, paste a YouTube/Vimeo link, or record a short clip directly in
+              the browser.
+            </p>
             <form onSubmit={handleVideoUpload}>
               <label>
-                Title
+                Title for uploaded file
                 <input
                   type="text"
                   value={videoTitle}
@@ -716,6 +828,51 @@ export default function AdminTopicPage() {
               </label>
               <button className="btn-secondary" type="submit">
                 Add link
+              </button>
+            </form>
+            <form className="split-form" onSubmit={handleRecordedUpload}>
+              <label>
+                Recording title
+                <input
+                  type="text"
+                  value={recordingTitle}
+                  onChange={(e) => setRecordingTitle(e.target.value)}
+                  placeholder="Recorded walkthrough"
+                />
+              </label>
+              <div className="recording-actions">
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={startRecording}
+                  disabled={isRecording}
+                >
+                  {isRecording ? 'Recording…' : 'Start recording'}
+                </button>
+                <button
+                  className="btn-tertiary"
+                  type="button"
+                  onClick={stopRecording}
+                  disabled={!isRecording}
+                >
+                  Stop
+                </button>
+                <button
+                  className="btn-tertiary"
+                  type="button"
+                  onClick={resetRecording}
+                  disabled={!recordedBlob || isRecording}
+                >
+                  Discard
+                </button>
+              </div>
+              {recordedPreviewUrl && (
+                <video className="video-preview" controls src={recordedPreviewUrl}>
+                  <track kind="captions" />
+                </video>
+              )}
+              <button className="btn-primary" type="submit" disabled={!recordedBlob || isRecording}>
+                Upload recording
               </button>
             </form>
           </section>

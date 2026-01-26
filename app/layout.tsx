@@ -1,6 +1,6 @@
 import './globals.css';
 import React from 'react';
-import Link from 'next/link';
+import TopBar from './components/TopBar';
 
 export const metadata = {
   title: 'uMakhi',
@@ -12,32 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <div className="app-shell">
-          <header className="top-bar">
-            <div className="top-bar-content">
-              <div className="brand">
-                <Link className="logo-link" href="/">
-                  <img className="logo-image" src="/logo.svg" alt="uMakhi logo" />
-                </Link>
-              </div>
-              <nav className="nav-links">
-                <Link className="nav-link" href="/">
-                  Home
-                </Link>
-                <Link className="nav-link" href="/paper/1">
-                  Paper 1
-                </Link>
-                <Link className="nav-link" href="/paper/2">
-                  Paper 2
-                </Link>
-                <Link className="nav-link" href="/login">
-                  Log in
-                </Link>
-                <Link className="nav-link" href="/signup">
-                  Sign up
-                </Link>
-              </nav>
-            </div>
-          </header>
+          <TopBar />
           {children}
           <footer className="footer">Empowering learners with colorful, focused guidance.</footer>
         </div>

@@ -3,7 +3,14 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { topics, uiLabels, LocalizedText, Difficulty, QuizQuestion } from '../../data/grade12';
+import {
+  topics,
+  uiLabels,
+  LocalizedText,
+  Difficulty,
+  QuizQuestion,
+  TopicContent,
+} from '../../data/grade12';
 
 type Language = 'en' | 'zu';
 
@@ -47,19 +54,27 @@ export default function TopicPage() {
       </main>
     );
   }
+  const topicData = topic as TopicContent;
 
-  function buildTopicContext() {
-    const outcomes = topic.introduction.outcomes.map((outcome) => getText(outcome, language));
-    const formulas = topic.notes.formulas.map((formula) => getText(formula, language));
-    const commonMistakes = topic.notes.commonMistakes.map((mistake) => getText(mistake, language));
-    const summary = topic.notes.summary.map((item) => getText(item, language));
-    const sections = topic.notes.sections
-      .map((section) => `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`)
+  function buildTopicContext(topicData: TopicContent) {
+    const outcomes = topicData.introduction.outcomes.map((outcome) => getText(outcome, language));
+    const formulas = topicData.notes.formulas.map((formula) => getText(formula, language));
+    const commonMistakes = topicData.notes.commonMistakes.map((mistake) =>
+      getText(mistake, language)
+    );
+    const summary = topicData.notes.summary.map((item) => getText(item, language));
+    const sections = topicData.notes.sections
+      .map(
+        (section) =>
+          `${getText(section.title, language)}: ${section.content
+            .map((item) => getText(item, language))
+            .join('; ')}`
+      )
       .join(' | ');
 
     return [
-      `Topic: ${getText(topic.title, language)}`,
-      `Overview: ${getText(topic.description, language)}`,
+      `Topic: ${getText(topicData.title, language)}`,
+      `Overview: ${getText(topicData.description, language)}`,
       `Learning outcomes: ${outcomes.join('; ')}`,
       `Key formulas: ${formulas.join('; ')}`,
       `Common mistakes: ${commonMistakes.join('; ')}`,
@@ -86,7 +101,7 @@ export default function TopicPage() {
         body: JSON.stringify({
           prompt: trimmedQuestion,
           language: language === 'zu' ? 'isiZulu' : 'English',
-          topicContext: buildTopicContext(),
+          topicContext: buildTopicContext(topicData),
         }),
       });
       const data = await res.json();

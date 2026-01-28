@@ -31,6 +31,13 @@ interface TopicVisual {
   svg_markup?: string;
 }
 
+interface ResourceLink {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+}
+
 export default function AdminTopicPage() {
   const params = useParams<{ id: string }>();
   const topicId = params.id;
@@ -57,6 +64,10 @@ export default function AdminTopicPage() {
   const [voiceAudioUrl, setVoiceAudioUrl] = useState('');
   const [voiceAudioFile, setVoiceAudioFile] = useState<File | null>(null);
   const [isVoicePreviewing, setIsVoicePreviewing] = useState(false);
+  const [resourceLinks, setResourceLinks] = useState<ResourceLink[]>([]);
+  const [resourceTitle, setResourceTitle] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  const [resourceDescription, setResourceDescription] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('#4f46e5');
@@ -174,6 +185,9 @@ export default function AdminTopicPage() {
       if (parsed?.voice?.audioUrl) {
         setVoiceAudioUrl(parsed.voice.audioUrl);
       }
+      if (parsed?.resourceLinks) {
+        setResourceLinks(normalizeResourceLinks(parsed.resourceLinks));
+      }
     }
   }
 
@@ -186,6 +200,29 @@ export default function AdminTopicPage() {
     } catch (parseError) {
       return null;
     }
+  }
+
+  function normalizeResourceLinks(links: unknown): ResourceLink[] {
+    if (!Array.isArray(links)) {
+      return [];
+    }
+    return links.map((link, index) => {
+      if (!link || typeof link !== 'object') {
+        return {
+          id: `${Date.now()}-${index}`,
+          title: 'Resource link',
+          url: '',
+          description: '',
+        };
+      }
+      const typedLink = link as Partial<ResourceLink>;
+      return {
+        id: typedLink.id ?? `${Date.now()}-${index}`,
+        title: typedLink.title ?? 'Resource link',
+        url: typedLink.url ?? '',
+        description: typedLink.description ?? '',
+      };
+    });
   }
 
   function buildTopicTemplate() {
@@ -258,6 +295,17 @@ export default function AdminTopicPage() {
           weakAreas: ['Weak area 1'],
           nextSteps: ['Next step 1'],
         },
+        resourceLinks:
+          resourceLinks.length > 0
+            ? resourceLinks
+            : [
+                {
+                  id: 'resource-1',
+                  title: 'Past paper memo',
+                  url: 'https://',
+                  description: 'Link to a supporting memo or worksheet.',
+                },
+              ],
         voice: {
           script: voiceScript || 'Short voice explanation for learners.',
           audioUrl: voiceAudioUrl || '',
@@ -615,6 +663,7 @@ export default function AdminTopicPage() {
         script: voiceScript || parsed.voice?.script || '',
         audioUrl: voiceAudioUrl || parsed.voice?.audioUrl || '',
       };
+      parsed.resourceLinks = resourceLinks;
       updatedDraft = JSON.stringify(parsed, null, 2);
       setContentDraft(updatedDraft);
     }
@@ -682,6 +731,29 @@ export default function AdminTopicPage() {
     window.speechSynthesis.cancel();
     setIsVoicePreviewing(true);
     window.speechSynthesis.speak(utterance);
+  }
+
+  function addResourceLink(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!resourceUrl) {
+      setError('Add a URL for the resource link.');
+      return;
+    }
+    const newLink: ResourceLink = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title: resourceTitle || 'Resource link',
+      url: resourceUrl,
+      description: resourceDescription,
+    };
+    setResourceLinks((prev) => [...prev, newLink]);
+    setResourceTitle('');
+    setResourceUrl('');
+    setResourceDescription('');
+  }
+
+  function removeResourceLink(linkId: string) {
+    setResourceLinks((prev) => prev.filter((link) => link.id !== linkId));
   }
 
   function stopVoicePreview() {
@@ -898,6 +970,71 @@ export default function AdminTopicPage() {
                       </button>
                     </div>
                     <p className="muted">{video.url}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="card">
+            <div className="section-header">
+              <h2>Resource links</h2>
+              <span className="badge">External support</span>
+            </div>
+            <p className="muted">
+              Add helpful links such as past papers, PDF worksheets, or interactive tools. These
+              save into the topic content JSON when you click “Save content.”
+            </p>
+            <form className="split-form" onSubmit={addResourceLink}>
+              <label>
+                Link title
+                <input
+                  type="text"
+                  value={resourceTitle}
+                  onChange={(e) => setResourceTitle(e.target.value)}
+                  placeholder="Past paper memo"
+                />
+              </label>
+              <label>
+                URL
+                <input
+                  type="url"
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                  placeholder="https://"
+                  required
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  value={resourceDescription}
+                  onChange={(e) => setResourceDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Why this link helps learners"
+                />
+              </label>
+              <button className="btn-secondary" type="submit">
+                Add link
+              </button>
+            </form>
+            {resourceLinks.length === 0 ? (
+              <p className="muted">No resource links yet.</p>
+            ) : (
+              <ul className="list resource-link-list">
+                {resourceLinks.map((link) => (
+                  <li className="list-item" key={link.id}>
+                    <div className="list-item-header">
+                      <h3>{link.title}</h3>
+                      <button
+                        className="btn-tertiary"
+                        type="button"
+                        onClick={() => removeResourceLink(link.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <p className="muted resource-link-url">{link.url}</p>
+                    {link.description && <p className="muted">{link.description}</p>}
                   </li>
                 ))}
               </ul>

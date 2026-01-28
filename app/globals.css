@@ -488,6 +488,99 @@ main {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.admin-dashboard {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.admin-stat-card {
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.12);
+  border-radius: 14px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-stat-card span {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.admin-stat-card strong {
+  font-size: 1.6rem;
+  color: var(--primary-dark);
+}
+
+.admin-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+}
+
+.admin-steps h3 {
+  margin-top: 0;
+}
+
+.admin-steps ul {
+  padding-left: 1.2rem;
+  color: var(--text-muted);
+}
+
+.admin-topic-card {
+  gap: 0.75rem;
+}
+
+.admin-topic-header {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.admin-topic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-details {
+  background: #fff;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.admin-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin-bottom: 0.75rem;
+}
+
+.resource-link-list {
+  margin-top: 1rem;
+}
+
+.resource-link-url {
+  word-break: break-all;
+}
+
 .list-item-header {
   display: flex;
   justify-content: space-between;

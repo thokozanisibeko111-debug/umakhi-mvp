@@ -34,6 +34,7 @@ export default function TopicPage() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!topic) {
@@ -47,20 +48,58 @@ export default function TopicPage() {
     );
   }
 
+  function buildTopicContext() {
+    const outcomes = topic.introduction.outcomes.map((outcome) => getText(outcome, language));
+    const formulas = topic.notes.formulas.map((formula) => getText(formula, language));
+    const commonMistakes = topic.notes.commonMistakes.map((mistake) => getText(mistake, language));
+    const summary = topic.notes.summary.map((item) => getText(item, language));
+    const sections = topic.notes.sections
+      .map((section) => `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`)
+      .join(' | ');
+
+    return [
+      `Topic: ${getText(topic.title, language)}`,
+      `Overview: ${getText(topic.description, language)}`,
+      `Learning outcomes: ${outcomes.join('; ')}`,
+      `Key formulas: ${formulas.join('; ')}`,
+      `Common mistakes: ${commonMistakes.join('; ')}`,
+      `Notes summary: ${summary.join('; ')}`,
+      `Notes sections: ${sections}`,
+    ].join('\n');
+  }
+
   async function askQuestion(e: React.FormEvent) {
     e.preventDefault();
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      return;
+    }
     setLoadingAnswer(true);
     setAnswer(null);
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt: question, language: language === 'zu' ? 'isiZulu' : 'English' }),
-    });
-    const data = await res.json();
-    setAnswer(data.answer);
-    setLoadingAnswer(false);
+    setError(null);
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: trimmedQuestion,
+          language: language === 'zu' ? 'isiZulu' : 'English',
+          topicContext: buildTopicContext(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Unable to fetch a response right now.');
+        return;
+      }
+      setAnswer(data.answer);
+    } catch (err) {
+      setError('Unable to reach uMakhi right now. Please try again.');
+    } finally {
+      setLoadingAnswer(false);
+    }
   }
 
   function playVoiceExplanation() {
@@ -322,21 +361,42 @@ export default function TopicPage() {
           <span className="badge">Interactive help</span>
         </div>
         <div className="ask-grid">
-          <div>
+          <div className="ask-panel">
             <h3>{getText({ en: 'Try asking', zu: 'Zama ukubuza' }, language)}</h3>
-            <ul>
+            <p className="muted">
+              {getText(
+                { en: 'Tap a prompt to fill the question box instantly.', zu: 'Chofoza isiphakamiso ukuze kugcwale umbuzo.' },
+                language
+              )}
+            </p>
+            <div className="ask-prompts">
               {topic.askPrompts.map((prompt) => (
-                <li key={prompt.en}>{getText(prompt, language)}</li>
+                <button
+                  className="ask-chip"
+                  type="button"
+                  key={prompt.en}
+                  onClick={() => setQuestion(getText(prompt, language))}
+                >
+                  {getText(prompt, language)}
+                </button>
               ))}
-            </ul>
+            </div>
+            <div className="ask-helper">
+              <h4>{getText({ en: 'What you will get', zu: 'Okuzotholwa' }, language)}</h4>
+              <ul>
+                <li>{getText({ en: 'Step-by-step guidance', zu: 'Isiqondiso esinyathelweni ngesinyathelo' }, language)}</li>
+                <li>{getText({ en: 'Relevant formulas & tips', zu: 'Amafomula namacebiso afanele' }, language)}</li>
+                <li>{getText({ en: 'Common mistakes to avoid', zu: 'Amaphutha okufanele uwagweme' }, language)}</li>
+              </ul>
+            </div>
           </div>
-          <form onSubmit={askQuestion}>
+          <form className="ask-form" onSubmit={askQuestion}>
             <label>
               {getText({ en: 'Your question', zu: 'Umbuzo wakho' }, language)}
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
-                rows={4}
+                rows={5}
                 placeholder={getText(
                   { en: 'Ask about this topic…', zu: 'Buza ngalesi sihloko…' },
                   language
@@ -344,16 +404,31 @@ export default function TopicPage() {
                 required
               />
             </label>
-            <button className="btn-primary" type="submit" disabled={loadingAnswer}>
+            <button className="btn-primary btn-primary--wide" type="submit" disabled={loadingAnswer}>
               {loadingAnswer
                 ? getText({ en: 'Sending…', zu: 'Iyathumela…' }, language)
-                : getText({ en: 'Ask', zu: 'Buza' }, language)}
+                : getText({ en: 'Ask uMakhi', zu: 'Buza uMakhi' }, language)}
             </button>
+            <p className="ask-note">
+              {getText(
+                { en: 'Be specific for better help. Example: “Show the steps for compound interest over 3 years.”', zu: 'Chaza kahle ukuze uthole usizo olungcono.' },
+                language
+              )}
+            </p>
           </form>
         </div>
+        {error && (
+          <div className="info-banner info-banner--warning" style={{ marginTop: '1rem' }}>
+            <strong>{getText({ en: 'Notice:', zu: 'Isaziso:' }, language)}</strong> {error}
+          </div>
+        )}
         {answer && (
-          <div className="info-banner" style={{ marginTop: '1rem' }}>
-            <strong>{getText({ en: 'Answer:', zu: 'Impendulo:' }, language)}</strong> {answer}
+          <div className="ask-answer" style={{ marginTop: '1rem' }}>
+            <div className="ask-answer__header">
+              <strong>{getText({ en: 'Answer', zu: 'Impendulo' }, language)}</strong>
+              <span className="badge">uMakhi</span>
+            </div>
+            <p>{answer}</p>
           </div>
         )}
       </section>

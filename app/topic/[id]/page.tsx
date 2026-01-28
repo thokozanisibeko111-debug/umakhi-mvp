@@ -35,6 +35,8 @@ export default function TopicPage() {
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [followUps, setFollowUps] = useState<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!topic) {
@@ -49,17 +51,24 @@ export default function TopicPage() {
   }
 
   function buildTopicContext() {
-    const outcomes = topic.introduction.outcomes.map((outcome) => getText(outcome, language));
-    const formulas = topic.notes.formulas.map((formula) => getText(formula, language));
-    const commonMistakes = topic.notes.commonMistakes.map((mistake) => getText(mistake, language));
-    const summary = topic.notes.summary.map((item) => getText(item, language));
-    const sections = topic.notes.sections
-      .map((section) => `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`)
+    const currentTopic = topic;
+    if (!currentTopic) {
+      return '';
+    }
+    const outcomes = currentTopic.introduction.outcomes.map((outcome) => getText(outcome, language));
+    const formulas = currentTopic.notes.formulas.map((formula) => getText(formula, language));
+    const commonMistakes = currentTopic.notes.commonMistakes.map((mistake) => getText(mistake, language));
+    const summary = currentTopic.notes.summary.map((item) => getText(item, language));
+    const sections = currentTopic.notes.sections
+      .map(
+        (section) =>
+          `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`
+      )
       .join(' | ');
 
     return [
-      `Topic: ${getText(topic.title, language)}`,
-      `Overview: ${getText(topic.description, language)}`,
+      `Topic: ${getText(currentTopic.title, language)}`,
+      `Overview: ${getText(currentTopic.description, language)}`,
       `Learning outcomes: ${outcomes.join('; ')}`,
       `Key formulas: ${formulas.join('; ')}`,
       `Common mistakes: ${commonMistakes.join('; ')}`,
@@ -77,6 +86,8 @@ export default function TopicPage() {
     setLoadingAnswer(true);
     setAnswer(null);
     setError(null);
+    setNotice(null);
+    setFollowUps([]);
     try {
       const res = await fetch('/api/ask', {
         method: 'POST',
@@ -90,11 +101,13 @@ export default function TopicPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok && data?.error) {
         setError(data.error || 'Unable to fetch a response right now.');
         return;
       }
-      setAnswer(data.answer);
+      setAnswer(data.answer || null);
+      setNotice(data.notice || null);
+      setFollowUps(Array.isArray(data.followUps) ? data.followUps : []);
     } catch (err) {
       setError('Unable to reach uMakhi right now. Please try again.');
     } finally {
@@ -422,6 +435,11 @@ export default function TopicPage() {
             <strong>{getText({ en: 'Notice:', zu: 'Isaziso:' }, language)}</strong> {error}
           </div>
         )}
+        {notice && !error && (
+          <div className="info-banner info-banner--info" style={{ marginTop: '1rem' }}>
+            <strong>{getText({ en: 'Note:', zu: 'Qaphela:' }, language)}</strong> {notice}
+          </div>
+        )}
         {answer && (
           <div className="ask-answer" style={{ marginTop: '1rem' }}>
             <div className="ask-answer__header">
@@ -429,6 +447,23 @@ export default function TopicPage() {
               <span className="badge">uMakhi</span>
             </div>
             <p>{answer}</p>
+            {followUps.length > 0 && (
+              <div className="ask-followups">
+                <p className="muted">{getText({ en: 'Try a follow-up:', zu: 'Zama ukubuza futhi:' }, language)}</p>
+                <div className="ask-followups__chips">
+                  {followUps.map((item) => (
+                    <button
+                      key={item}
+                      className="ask-chip"
+                      type="button"
+                      onClick={() => setQuestion(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { supabase, supabaseConfigError } from '@/utils/supabaseClient';
 import {
   topics,
   uiLabels,
@@ -34,15 +35,262 @@ function groupByDifficulty(items: QuizQuestion[]) {
   );
 }
 
+function parseContentDraft(draft: string) {
+  if (!draft) {
+    return null;
+  }
+  try {
+    return JSON.parse(draft);
+  } catch (parseError) {
+    return null;
+  }
+}
+
+function toLocalizedText(value: unknown, fallback = ''): LocalizedText {
+  if (typeof value === 'string') {
+    return { en: value, zu: value };
+  }
+  if (value && typeof value === 'object' && 'en' in value) {
+    const record = value as LocalizedText;
+    return { en: record.en ?? fallback, zu: record.zu ?? record.en ?? fallback };
+  }
+  return { en: fallback, zu: fallback };
+}
+
+function toLocalizedList(values: unknown[] | undefined) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values.map((value) => toLocalizedText(value));
+}
+
+function normalizeExamples(examples: Record<string, unknown> | undefined) {
+  const empty = { Easy: [], Medium: [], Hard: [] } as Record<Difficulty, TopicContent['examples'][Difficulty]>;
+  if (!examples || typeof examples !== 'object') {
+    return empty;
+  }
+  (['Easy', 'Medium', 'Hard'] as Difficulty[]).forEach((level) => {
+    const list = (examples as Record<string, unknown>)[level];
+    if (Array.isArray(list)) {
+      empty[level] = list.map((example) => {
+        const exampleItem = example as Record<string, unknown>;
+        return {
+          question: toLocalizedText(exampleItem.question),
+          steps: toLocalizedList(exampleItem.steps as unknown[]),
+          answer: toLocalizedText(exampleItem.answer),
+          why: toLocalizedText(exampleItem.why),
+        };
+      });
+    }
+  });
+  return empty;
+}
+
+function normalizeQuizzes(quizzes: unknown[] | undefined) {
+  if (!Array.isArray(quizzes)) {
+    return [];
+  }
+  return quizzes.map((quiz) => {
+    const quizItem = quiz as Record<string, unknown>;
+    return {
+      question: toLocalizedText(quizItem.question),
+      options: toLocalizedList(quizItem.options as unknown[]),
+      correctIndex: typeof quizItem.correctIndex === 'number' ? quizItem.correctIndex : 0,
+      solution: toLocalizedText(quizItem.solution),
+      feedback: toLocalizedText(quizItem.feedback),
+      difficulty: (quizItem.difficulty as Difficulty) ?? 'Easy',
+    } as QuizQuestion;
+  });
+}
+
+function normalizeSections(sections: unknown[] | undefined) {
+  if (!Array.isArray(sections)) {
+    return [];
+  }
+  return sections.map((section) => {
+    const sectionItem = section as Record<string, unknown>;
+    return {
+      title: toLocalizedText(sectionItem.title),
+      content: toLocalizedList(sectionItem.content as unknown[]),
+    };
+  });
+}
+
+function normalizeVisuals(visuals: unknown[] | undefined) {
+  if (!Array.isArray(visuals)) {
+    return [];
+  }
+  return visuals.map((visual) => {
+    const visualItem = visual as Record<string, unknown>;
+    return {
+      title: toLocalizedText(visualItem.title),
+      description: toLocalizedText(visualItem.description),
+      svg: (visualItem.svg as string) ?? '',
+    };
+  });
+}
+
+function normalizeVideos(videos: unknown[] | undefined) {
+  if (!Array.isArray(videos)) {
+    return [];
+  }
+  return videos.map((video) => {
+    const videoItem = video as Record<string, unknown>;
+    return {
+      title: toLocalizedText(videoItem.title, 'Video'),
+      url: (videoItem.url as string) ?? '',
+      description: toLocalizedText(videoItem.description, 'Video resource'),
+    };
+  });
+}
+
+function buildTopicFromContent(
+  topicRow: { id: string; title: string; description?: string; paper?: number },
+  content: Record<string, unknown> | null,
+  storedVideos: Array<{ title?: string; url?: string; description?: string }>
+): TopicContent {
+  const title = toLocalizedText(content?.title ?? topicRow.title);
+  const description = toLocalizedText(content?.description ?? topicRow.description ?? '');
+  const paper = (content?.paper as 1 | 2) ?? ((topicRow.paper ?? 1) as 1 | 2);
+  const introductionContent = (content?.introduction as Record<string, unknown>) ?? {};
+  const starterExample = (introductionContent.starterExample as Record<string, unknown>) ?? {};
+  const notesContent = (content?.notes as Record<string, unknown>) ?? {};
+  const progressContent = (content?.progress as Record<string, unknown>) ?? {};
+  const introduction = {
+    outcomes: toLocalizedList(introductionContent.outcomes as unknown[]),
+    importance: toLocalizedText(introductionContent.importance),
+    starterExample: {
+      question: toLocalizedText(starterExample.question),
+      steps: toLocalizedList(starterExample.steps as unknown[]),
+      answer: toLocalizedText(starterExample.answer),
+      why: toLocalizedText(starterExample.why),
+    },
+  };
+  const notes = {
+    intro: toLocalizedText(notesContent.intro),
+    sections: normalizeSections(notesContent.sections as unknown[]),
+    formulas: toLocalizedList(notesContent.formulas as unknown[]),
+    commonMistakes: toLocalizedList(notesContent.commonMistakes as unknown[]),
+    examTips: toLocalizedList(notesContent.examTips as unknown[]),
+    summary: toLocalizedList(notesContent.summary as unknown[]),
+  };
+  const contentVideos = normalizeVideos(content?.videos as unknown[]);
+  const databaseVideos = (storedVideos ?? []).map((video) => ({
+    title: toLocalizedText(video.title ?? 'Video'),
+    url: video.url ?? '',
+    description: toLocalizedText(video.description ?? 'Video resource'),
+  }));
+  return {
+    id: topicRow.id,
+    title,
+    paper,
+    description,
+    mastery: (content?.mastery as number) ?? 0,
+    subtopics: toLocalizedList((content?.subtopics as unknown[]) ?? []),
+    introduction,
+    notes,
+    visuals: normalizeVisuals(content?.visuals as unknown[]),
+    examples: normalizeExamples(content?.examples as Record<string, unknown>),
+    quizzes: normalizeQuizzes(content?.quizzes as unknown[]),
+    videos: [...contentVideos, ...databaseVideos],
+    askPrompts: toLocalizedList((content?.askPrompts as unknown[]) ?? []),
+    progress: {
+      strengths: toLocalizedList(progressContent.strengths as unknown[]),
+      weakAreas: toLocalizedList(progressContent.weakAreas as unknown[]),
+      nextSteps: toLocalizedList(progressContent.nextSteps as unknown[]),
+    },
+    voice: content?.voice
+      ? {
+          script: toLocalizedText((content.voice as Record<string, unknown>)?.script),
+          audioUrl: (content.voice as Record<string, unknown>)?.audioUrl as string,
+        }
+      : undefined,
+  };
+}
+
+function getVideoEmbedUrl(url: string) {
+  if (!url) {
+    return null;
+  }
+  if (url.includes('youtube.com') && url.includes('v=')) {
+    return `https://www.youtube.com/embed/${url.split('v=')[1]}`;
+  }
+  if (url.includes('youtu.be/')) {
+    const videoId = url.split('youtu.be/')[1];
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+  return null;
+}
+
 export default function TopicPage() {
   const params = useParams<{ id: string }>();
-  const topic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
+  const localTopic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
+  const [topicData, setTopicData] = useState<TopicContent | null>(null);
+  const [resourceLinks, setResourceLinks] = useState<
+    Array<{ id?: string; title: string; url: string; description?: string }>
+  >([]);
+  const [uploadedVisuals, setUploadedVisuals] = useState<
+    Array<{ id: string; title: string; description?: string; imageUrl: string }>
+  >([]);
   const [language, setLanguage] = useState<Language>('en');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    async function fetchTopicData() {
+      if (!supabase) {
+        if (localTopic) {
+          setTopicData(localTopic);
+        } else if (supabaseConfigError) {
+          setError(supabaseConfigError);
+        }
+        return;
+      }
+      const { data: topicRow, error: topicError } = await supabase
+        .from('topics')
+        .select('id, title, description, paper')
+        .eq('id', params.id)
+        .maybeSingle();
+      if (topicError) {
+        setError(topicError.message);
+      }
+      if (!topicRow) {
+        if (localTopic) {
+          setTopicData(localTopic);
+        }
+        return;
+      }
+      const [contentRes, videosRes, visualsRes] = await Promise.all([
+        supabase.from('topic_content').select('content').eq('topic_id', topicRow.id).maybeSingle(),
+        supabase.from('videos').select('title, url, description').eq('topic_id', topicRow.id),
+        supabase
+          .from('topic_visuals')
+          .select('id, title, description, image_url')
+          .eq('topic_id', topicRow.id),
+      ]);
+      const parsedContent = parseContentDraft(contentRes.data?.content ?? '');
+      const normalizedTopic = buildTopicFromContent(topicRow, parsedContent, videosRes.data ?? []);
+      setTopicData(normalizedTopic);
+      setResourceLinks(parsedContent?.resourceLinks ?? []);
+      setUploadedVisuals(
+        (visualsRes.data ?? [])
+          .filter((visual) => Boolean(visual.image_url))
+          .map((visual) => ({
+            id: visual.id as string,
+            title: (visual.title as string) ?? 'Visual upload',
+            description: (visual.description as string) ?? undefined,
+            imageUrl: visual.image_url as string,
+          }))
+      );
+    }
+
+    fetchTopicData();
+  }, [localTopic, params.id]);
+
+  const topic = topicData;
 
   if (!topic) {
     return (
@@ -54,16 +302,14 @@ export default function TopicPage() {
       </main>
     );
   }
-  const topicData = topic as TopicContent;
-
-  function buildTopicContext(topicData: TopicContent) {
-    const outcomes = topicData.introduction.outcomes.map((outcome) => getText(outcome, language));
-    const formulas = topicData.notes.formulas.map((formula) => getText(formula, language));
-    const commonMistakes = topicData.notes.commonMistakes.map((mistake) =>
+  function buildTopicContext(activeTopic: TopicContent) {
+    const outcomes = activeTopic.introduction.outcomes.map((outcome) => getText(outcome, language));
+    const formulas = activeTopic.notes.formulas.map((formula) => getText(formula, language));
+    const commonMistakes = activeTopic.notes.commonMistakes.map((mistake) =>
       getText(mistake, language)
     );
-    const summary = topicData.notes.summary.map((item) => getText(item, language));
-    const sections = topicData.notes.sections
+    const summary = activeTopic.notes.summary.map((item) => getText(item, language));
+    const sections = activeTopic.notes.sections
       .map(
         (section) =>
           `${getText(section.title, language)}: ${section.content
@@ -73,8 +319,8 @@ export default function TopicPage() {
       .join(' | ');
 
     return [
-      `Topic: ${getText(topicData.title, language)}`,
-      `Overview: ${getText(topicData.description, language)}`,
+      `Topic: ${getText(activeTopic.title, language)}`,
+      `Overview: ${getText(activeTopic.description, language)}`,
       `Learning outcomes: ${outcomes.join('; ')}`,
       `Key formulas: ${formulas.join('; ')}`,
       `Common mistakes: ${commonMistakes.join('; ')}`,
@@ -85,6 +331,9 @@ export default function TopicPage() {
 
   async function askQuestion(e: React.FormEvent) {
     e.preventDefault();
+    if (!topic) {
+      return;
+    }
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       return;
@@ -101,7 +350,7 @@ export default function TopicPage() {
         body: JSON.stringify({
           prompt: trimmedQuestion,
           language: language === 'zu' ? 'isiZulu' : 'English',
-          topicContext: buildTopicContext(topicData),
+          topicContext: buildTopicContext(topic),
         }),
       });
       const data = await res.json();
@@ -263,6 +512,22 @@ export default function TopicPage() {
             </div>
           ))}
         </div>
+        {uploadedVisuals.length > 0 && (
+          <>
+            <h3 style={{ marginTop: '1.5rem' }}>
+              {getText({ en: 'Uploaded visuals', zu: 'Izithombe ezilayishiwe' }, language)}
+            </h3>
+            <div className="visual-grid">
+              {uploadedVisuals.map((visual) => (
+                <div className="visual-card" key={visual.id}>
+                  <h4>{visual.title}</h4>
+                  {visual.description && <p className="muted">{visual.description}</p>}
+                  <img className="visual-preview" src={visual.imageUrl} alt={visual.title} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="card">
@@ -323,18 +588,41 @@ export default function TopicPage() {
             <li className="list-item" key={video.url}>
               <h3>{getText(video.title, language)}</h3>
               <p className="muted">{getText(video.description, language)}</p>
-              <div className="video-frame">
-                <iframe
-                  title={getText(video.title, language)}
-                  src={`https://www.youtube.com/embed/${video.url.split('v=')[1]}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              {getVideoEmbedUrl(video.url) ? (
+                <div className="video-frame">
+                  <iframe
+                    title={getText(video.title, language)}
+                    src={getVideoEmbedUrl(video.url) ?? ''}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              ) : (
+                <video className="video-preview" controls src={video.url}>
+                  <track kind="captions" />
+                </video>
+              )}
             </li>
           ))}
         </ul>
       </section>
+      {resourceLinks.length > 0 && (
+        <section className="card">
+          <div className="section-header">
+            <h2>{getText({ en: 'Resources', zu: 'Izinsiza' }, language)}</h2>
+            <span className="badge">Extra support</span>
+          </div>
+          <ul className="list">
+            {resourceLinks.map((link, index) => (
+              <li className="list-item" key={link.id ?? `${link.url}-${index}`}>
+                <h3>{link.title}</h3>
+                <p className="muted resource-link-url">{link.url}</p>
+                {link.description && <p className="muted">{link.description}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {topic.voice && (
         <section className="card">

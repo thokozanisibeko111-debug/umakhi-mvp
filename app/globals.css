@@ -375,6 +375,17 @@ main {
   line-height: 1.6;
 }
 
+.ask-followups {
+  margin-top: 1rem;
+}
+
+.ask-followups__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .ask-answer__header {
   display: flex;
   align-items: center;
@@ -391,6 +402,12 @@ main {
   border-color: rgba(245, 158, 11, 0.4);
   background: rgba(251, 191, 36, 0.12);
   color: #92400e;
+}
+
+.info-banner--info {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(191, 219, 254, 0.4);
+  color: #1e3a8a;
 }
 
 .progress-grid {

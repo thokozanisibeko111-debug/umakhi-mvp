@@ -18,8 +18,18 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
+
+  const fallbackAnswer = buildFallbackAnswer({ prompt, language, topicContext });
+  const followUps = buildFollowUps(language);
   if (!apiKey) {
-    return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    return NextResponse.json(
+      {
+        answer: fallbackAnswer,
+        notice: buildNotice('missing-key', language),
+        followUps,
+      },
+      { status: 200 }
+    );
   }
 
   const openai = new OpenAI({ apiKey });
@@ -50,8 +60,139 @@ export async function POST(req: NextRequest) {
       max_tokens: 500,
     });
     const answer = completion.choices[0]?.message?.content?.trim() || '';
-    return NextResponse.json({ answer });
+    return NextResponse.json({ answer, followUps });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error generating answer' }, { status: 500 });
+    const status = typeof error?.status === 'number' ? error.status : undefined;
+    const notice = buildNotice(status, language);
+    return NextResponse.json(
+      {
+        answer: fallbackAnswer,
+        notice,
+        followUps,
+      },
+      { status: 200 }
+    );
   }
+}
+
+type FallbackInput = {
+  prompt: string;
+  language?: string;
+  topicContext?: string;
+};
+
+type TopicContextParts = {
+  topic?: string;
+  summary?: string;
+  formulas?: string;
+  mistakes?: string;
+  outcomes?: string;
+  notes?: string;
+};
+
+function parseTopicContext(topicContext?: string): TopicContextParts {
+  if (!topicContext) {
+    return {};
+  }
+  const lines = topicContext.split('\n');
+  const findLine = (prefix: string) =>
+    lines.find((line) => line.startsWith(prefix))?.replace(prefix, '').trim();
+
+  return {
+    topic: findLine('Topic:'),
+    outcomes: findLine('Learning outcomes:'),
+    formulas: findLine('Key formulas:'),
+    mistakes: findLine('Common mistakes:'),
+    summary: findLine('Notes summary:'),
+    notes: findLine('Notes sections:'),
+  };
+}
+
+function buildFallbackAnswer({ prompt, language, topicContext }: FallbackInput) {
+  const isZulu = language?.toLowerCase().includes('zulu');
+  const context = parseTopicContext(topicContext);
+  const intro = isZulu
+    ? 'Nansi impendulo esekelwe kumaphuzu esihloko.'
+    : 'Here is a study-guided response based on the topic notes.';
+  const topicLine = context.topic ? ` ${isZulu ? 'Isihloko' : 'Topic'}: ${context.topic}.` : '';
+  const stepsHeader = isZulu ? 'Izinyathelo ezisheshayo:' : 'Quick steps:';
+  const steps = isZulu
+    ? [
+        'Bhala okwaziwayo nobuzwa.',
+        'Khetha ifomula efanele.',
+        'Faka amanani bese uxazulula.',
+        'Hlola ukuthi impendulo iyahambisana nombuzo.',
+      ]
+    : [
+        'Write down what is given and what is required.',
+        'Choose the correct formula or rule.',
+        'Substitute the values and solve step-by-step.',
+        'Check that your answer matches the question.',
+      ];
+  const promptLine = isZulu
+    ? `Umbuzo wakho: “${prompt}”.`
+    : `Your question: “${prompt}”.`;
+
+  const parts = [
+    `${intro}${topicLine}`,
+    promptLine,
+    `${stepsHeader}\n${steps.map((step, index) => `${index + 1}. ${step}`).join('\n')}`,
+  ];
+
+  if (context.summary) {
+    parts.push(`${isZulu ? 'Isifinyezo sesihloko' : 'Topic recap'}: ${context.summary}.`);
+  }
+  if (context.formulas) {
+    parts.push(`${isZulu ? 'Amafomula abalulekile' : 'Key formulas'}: ${context.formulas}.`);
+  }
+  if (context.mistakes) {
+    parts.push(`${isZulu ? 'Amaphutha ajwayelekile' : 'Common mistakes to avoid'}: ${context.mistakes}.`);
+  }
+  if (context.notes) {
+    parts.push(`${isZulu ? 'Okunye okubalulekile' : 'Extra notes'}: ${context.notes}.`);
+  }
+
+  const closing = isZulu
+    ? 'Uma ufuna isibonelo esibaliwe, ngitshele umbuzo ogcwele nomsebenzi okwenza kube nzima.'
+    : 'If you want a worked example, share the exact question and where you got stuck.';
+  parts.push(closing);
+
+  return parts.join('\n\n');
+}
+
+function buildNotice(status: number | 'missing-key' | undefined, language?: string) {
+  const isZulu = language?.toLowerCase().includes('zulu');
+  if (status === 'missing-key') {
+    return isZulu
+      ? 'Ukuphendula okuzenzakalelayo kuvaliwe okwamanje, ngakho ngisebenzisa amanothi esihloko ukusiza.'
+      : 'Live AI responses are not configured, so I used the topic notes to help you.';
+  }
+  if (status === 429) {
+    return isZulu
+      ? 'Sidlule umkhawulo wamanje we-API, ngakho ngisebenzisa amanothi esihloko okwamanje.'
+      : 'We hit the current AI usage limit, so I used the topic notes as a fallback.';
+  }
+  if (status === 401 || status === 403) {
+    return isZulu
+      ? 'I-API ayigunyaziwe okwamanje, ngakho ngisebenzisa amanothi esihloko.'
+      : 'The AI service is not authorized right now, so I used the topic notes instead.';
+  }
+  return isZulu
+    ? 'Kukhona inkinga yokuxhuma, ngakho ngisebenzisa amanothi esihloko okwamanje.'
+    : 'We had a connection issue, so I used the topic notes as a fallback.';
+}
+
+function buildFollowUps(language?: string) {
+  const isZulu = language?.toLowerCase().includes('zulu');
+  return isZulu
+    ? [
+        'Ngicela isibonelo esibaliwe.',
+        'Chaza isinyathelo sokuqala ngokuningiliziwe.',
+        'Yimaphi amaphutha ajwayelekile lapha?',
+      ]
+    : [
+        'Please show a worked example.',
+        'Explain the first step in more detail.',
+        'What common mistakes should I avoid?',
+      ];
 }

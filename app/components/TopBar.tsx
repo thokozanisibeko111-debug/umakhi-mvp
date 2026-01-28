@@ -9,6 +9,7 @@ import { supabase } from '@/utils/supabaseClient';
 export default function TopBar() {
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -21,8 +22,10 @@ export default function TopBar() {
 
     const loadSession = async () => {
       const { data } = await supabase.auth.getSession();
+      const role = data.session?.user?.user_metadata?.role;
       if (isMounted) {
         setIsAuthenticated(Boolean(data.session));
+        setIsAdmin(role === 'admin');
       }
     };
 
@@ -30,6 +33,7 @@ export default function TopBar() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(Boolean(session));
+      setIsAdmin(session?.user?.user_metadata?.role === 'admin');
     });
 
     return () => {
@@ -63,6 +67,11 @@ export default function TopBar() {
                 Paper 2
               </Link>
             </>
+          ) : null}
+          {isAdmin ? (
+            <Link className="nav-link" href="/admin">
+              Admin workspace
+            </Link>
           ) : null}
           <Link className="nav-link" href="/login">
             Log in

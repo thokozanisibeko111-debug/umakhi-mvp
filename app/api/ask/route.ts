@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const prompt: string = body.prompt;
   const language: string | undefined = body.language;
+  const topicContext: string | undefined = body.topicContext;
 
   if (!prompt) {
     return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
@@ -29,7 +30,6 @@ export async function POST(req: NextRequest) {
         content:
           'You are an educational assistant for South African Grade 12 Mathematics (CAPS). Respond in simple language with step-by-step reasoning, highlight the relevant notes section, and give short feedback on common mistakes.',
       },
-      { role: 'user', content: prompt },
     ];
     if (language) {
       messages.push({
@@ -37,6 +37,13 @@ export async function POST(req: NextRequest) {
         content: `Please answer in ${language} and keep sentences short for translation clarity.`,
       });
     }
+    if (topicContext) {
+      messages.push({
+        role: 'system',
+        content: `Context from the topic page:\n${topicContext}`,
+      });
+    }
+    messages.push({ role: 'user', content: prompt });
     const completion = await openai.chat.completions.create({
       model,
       messages,

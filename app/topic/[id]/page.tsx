@@ -51,17 +51,24 @@ export default function TopicPage() {
   }
 
   function buildTopicContext() {
-    const outcomes = topic.introduction.outcomes.map((outcome) => getText(outcome, language));
-    const formulas = topic.notes.formulas.map((formula) => getText(formula, language));
-    const commonMistakes = topic.notes.commonMistakes.map((mistake) => getText(mistake, language));
-    const summary = topic.notes.summary.map((item) => getText(item, language));
-    const sections = topic.notes.sections
-      .map((section) => `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`)
+    const currentTopic = topic;
+    if (!currentTopic) {
+      return '';
+    }
+    const outcomes = currentTopic.introduction.outcomes.map((outcome) => getText(outcome, language));
+    const formulas = currentTopic.notes.formulas.map((formula) => getText(formula, language));
+    const commonMistakes = currentTopic.notes.commonMistakes.map((mistake) => getText(mistake, language));
+    const summary = currentTopic.notes.summary.map((item) => getText(item, language));
+    const sections = currentTopic.notes.sections
+      .map(
+        (section) =>
+          `${getText(section.title, language)}: ${section.content.map((item) => getText(item, language)).join('; ')}`
+      )
       .join(' | ');
 
     return [
-      `Topic: ${getText(topic.title, language)}`,
-      `Overview: ${getText(topic.description, language)}`,
+      `Topic: ${getText(currentTopic.title, language)}`,
+      `Overview: ${getText(currentTopic.description, language)}`,
       `Learning outcomes: ${outcomes.join('; ')}`,
       `Key formulas: ${formulas.join('; ')}`,
       `Common mistakes: ${commonMistakes.join('; ')}`,

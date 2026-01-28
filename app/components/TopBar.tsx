@@ -13,15 +13,16 @@ export default function TopBar() {
 
   useEffect(() => {
     let isMounted = true;
+    const supabaseClient = supabase;
 
-    if (!supabase) {
+    if (!supabaseClient) {
       return () => {
         isMounted = false;
       };
     }
 
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabaseClient.auth.getSession();
       const role = data.session?.user?.user_metadata?.role;
       if (isMounted) {
         setIsAuthenticated(Boolean(data.session));
@@ -31,7 +32,7 @@ export default function TopBar() {
 
     loadSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(Boolean(session));
       setIsAdmin(session?.user?.user_metadata?.role === 'admin');
     });

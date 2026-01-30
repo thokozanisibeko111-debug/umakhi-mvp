@@ -106,7 +106,7 @@ export default function AdminTopicPage() {
     }
 
     checkAccess();
-  }, [topicId]);
+  }, [supabase, supabaseConfigError, topicId]);
 
   useEffect(() => {
     if (isAuthorized && topicId) {

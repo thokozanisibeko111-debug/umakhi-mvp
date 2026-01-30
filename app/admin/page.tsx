@@ -65,7 +65,7 @@ export default function AdminPage() {
     }
 
     checkAccess();
-  }, []);
+  }, [supabase, supabaseConfigError]);
 
   useEffect(() => {
     if (isAuthorized) {

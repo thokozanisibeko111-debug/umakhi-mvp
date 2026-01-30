@@ -50,7 +50,11 @@ export default function TopicPage() {
     );
   }
 
-  function buildTopicContext() {
+  const buildTopicContext = () => {
+    if (!topic) {
+      return '';
+    }
+
     const outcomes = topic.introduction.outcomes.map((outcome) => getText(outcome, language));
     const formulas = topic.notes.formulas.map((formula) => getText(formula, language));
     const commonMistakes = topic.notes.commonMistakes.map((mistake) => getText(mistake, language));
@@ -68,7 +72,7 @@ export default function TopicPage() {
       `Notes summary: ${summary.join('; ')}`,
       `Notes sections: ${sections}`,
     ].join('\n');
-  }
+  };
 
   async function askQuestion(e: React.FormEvent) {
     e.preventDefault();

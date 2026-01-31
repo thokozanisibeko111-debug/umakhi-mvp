@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { topics, uiLabels, LocalizedText, Difficulty, QuizQuestion } from '../../data/grade12';
+import { supabase } from '@/utils/supabaseClient';
 
 type Language = 'en' | 'zu';
 
@@ -29,8 +30,26 @@ function groupByDifficulty(items: QuizQuestion[]) {
 
 export default function TopicPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const topic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
   const [language, setLanguage] = useState<Language>('en');
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    async function checkAuth() {
+      if (!supabase) {
+        router.replace('/login');
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace('/login');
+      } else {
+        setAuthChecked(true);
+      }
+    }
+    checkAuth();
+  }, [router]);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
@@ -38,6 +57,10 @@ export default function TopicPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  if (!authChecked) {
+    return null;
+  }
 
   if (!topic) {
     return (

@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { topics, Difficulty, LocalizedText } from '../../../data/grade12';
+import { supabase } from '@/utils/supabaseClient';
 
 type Language = 'en' | 'zu';
 
@@ -18,7 +19,9 @@ function getText(text: LocalizedText, language: Language) {
 
 export default function QuizPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const topic = useMemo(() => topics.find((item) => item.id === params.id), [params.id]);
+  const [authChecked, setAuthChecked] = useState(false);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
@@ -26,6 +29,26 @@ export default function QuizPage() {
   const [finished, setFinished] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
+
+  useEffect(() => {
+    async function checkAuth() {
+      if (!supabase) {
+        router.replace('/login');
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace('/login');
+      } else {
+        setAuthChecked(true);
+      }
+    }
+    checkAuth();
+  }, [router]);
+
+  if (!authChecked) {
+    return null;
+  }
 
   if (!topic) {
     return (

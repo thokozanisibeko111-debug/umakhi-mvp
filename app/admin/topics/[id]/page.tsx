@@ -39,8 +39,8 @@ interface ResourceLink {
 }
 
 export default function AdminTopicPage() {
-  const params = useParams<{ id: string }>();
-  const topicId = params.id;
+  const params = useParams<{ id?: string | string[] }>();
+  const topicId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [topicTitle, setTopicTitle] = useState('');
   const [topicDescription, setTopicDescription] = useState('');
   const [topicPaper, setTopicPaper] = useState<1 | 2>(1);
@@ -115,6 +115,8 @@ export default function AdminTopicPage() {
       fetchQuizzes();
       fetchVisuals();
       fetchTopicContent();
+    } else if (isAuthorized && !topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
     }
   }, [isAuthorized, topicId]);
 
@@ -130,6 +132,10 @@ export default function AdminTopicPage() {
     if (!supabase) {
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     const { data, error } = await supabase.from('topics').select('*').eq('id', topicId).single();
     if (!error && data) {
       const topicData = data as Topic;
@@ -143,6 +149,9 @@ export default function AdminTopicPage() {
     if (!supabase) {
       return;
     }
+    if (!topicId) {
+      return;
+    }
     const { data, error } = await supabase.from('videos').select('*').eq('topic_id', topicId);
     if (!error && data) setVideos(data as Video[]);
   }
@@ -151,12 +160,18 @@ export default function AdminTopicPage() {
     if (!supabase) {
       return;
     }
+    if (!topicId) {
+      return;
+    }
     const { data, error } = await supabase.from('quizzes').select('*').eq('topic_id', topicId);
     if (!error && data) setQuizzes(data as Quiz[]);
   }
 
   async function fetchVisuals() {
     if (!supabase) {
+      return;
+    }
+    if (!topicId) {
       return;
     }
     const { data, error } = await supabase
@@ -168,6 +183,9 @@ export default function AdminTopicPage() {
 
   async function fetchTopicContent() {
     if (!supabase) {
+      return;
+    }
+    if (!topicId) {
       return;
     }
     const { data, error } = await supabase
@@ -323,6 +341,10 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     const { error } = await supabase
       .from('topics')
       .update({ title: topicTitle, description: topicDescription, paper: topicPaper })
@@ -341,6 +363,10 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     if (!videoFile) {
       setError('Please select a video file.');
       return;
@@ -356,6 +382,10 @@ export default function AdminTopicPage() {
     setError(null);
     if (!supabase) {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
       return;
     }
     if (!videoUrl) {
@@ -395,6 +425,10 @@ export default function AdminTopicPage() {
   async function uploadVideoAsset(file: Blob, filePath: string, title: string) {
     if (!supabase) {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
       return;
     }
     const { error: uploadError } = await supabase.storage
@@ -499,6 +533,10 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     const { error } = await supabase.from('videos').delete().eq('id', videoId);
     if (error) {
       setError(error.message);
@@ -512,6 +550,10 @@ export default function AdminTopicPage() {
     setError(null);
     if (!supabase) {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
       return;
     }
     const { data, error } = await supabase
@@ -601,6 +643,10 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     const filePath = `${topicId}/${filename}`;
     const { error: uploadError } = await supabase.storage
       .from('visuals')
@@ -641,6 +687,10 @@ export default function AdminTopicPage() {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
       return;
     }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
+      return;
+    }
     const { error } = await supabase.from('topic_visuals').delete().eq('id', visualId);
     if (error) {
       setError(error.message);
@@ -654,6 +704,10 @@ export default function AdminTopicPage() {
     setError(null);
     if (!supabase) {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
       return;
     }
     let updatedDraft = contentDraft;
@@ -694,6 +748,10 @@ export default function AdminTopicPage() {
     setError(null);
     if (!supabase) {
       setError(supabaseConfigError ?? 'Supabase client is not available.');
+      return;
+    }
+    if (!topicId) {
+      setError('Missing topic ID. Please return to the admin dashboard and try again.');
       return;
     }
     if (!voiceAudioFile) {

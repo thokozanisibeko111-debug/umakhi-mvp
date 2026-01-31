@@ -34,7 +34,19 @@ export default function Login() {
     if (error) {
       setError(error.message);
     } else {
-      const userRole = data.user?.user_metadata?.role;
+      const rawRole = data.user?.user_metadata?.role ?? data.user?.app_metadata?.role;
+      const userRole = typeof rawRole === 'string' ? rawRole.toLowerCase() : null;
+      if (!userRole && role === 'learner') {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { role: 'learner' },
+        });
+        if (updateError) {
+          setError(updateError.message);
+          return;
+        }
+        window.location.href = '/';
+        return;
+      }
       if (userRole !== role) {
         await supabase.auth.signOut();
         setError(

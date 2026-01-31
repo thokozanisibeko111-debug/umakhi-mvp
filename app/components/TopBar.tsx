@@ -23,7 +23,9 @@ export default function TopBar() {
 
     const loadSession = async () => {
       const { data } = await client.auth.getSession();
-      const role = data.session?.user?.user_metadata?.role;
+      const roleValue =
+        data.session?.user?.user_metadata?.role ?? data.session?.user?.app_metadata?.role;
+      const role = typeof roleValue === 'string' ? roleValue.toLowerCase() : null;
       if (isMounted) {
         setIsAuthenticated(Boolean(data.session));
         setIsAdmin(role === 'admin');
@@ -34,7 +36,9 @@ export default function TopBar() {
 
     const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(Boolean(session));
-      setIsAdmin(session?.user?.user_metadata?.role === 'admin');
+      const roleValue = session?.user?.user_metadata?.role ?? session?.user?.app_metadata?.role;
+      const role = typeof roleValue === 'string' ? roleValue.toLowerCase() : null;
+      setIsAdmin(role === 'admin');
     });
 
     return () => {

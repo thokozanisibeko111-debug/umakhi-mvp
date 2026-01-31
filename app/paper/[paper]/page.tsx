@@ -1,11 +1,36 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { paperTopics, uiLabels } from '../../data/grade12';
+import { supabase } from '@/utils/supabaseClient';
 
-type PaperPageProps = {
-  params: { paper: string };
-};
+export default function PaperPage() {
+  const params = useParams<{ paper: string }>();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
 
-export default function PaperPage({ params }: PaperPageProps) {
+  useEffect(() => {
+    async function checkAuth() {
+      if (!supabase) {
+        router.replace('/login');
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace('/login');
+      } else {
+        setAuthChecked(true);
+      }
+    }
+    checkAuth();
+  }, [router]);
+
+  if (!authChecked) {
+    return null;
+  }
+
   const paperNumber = params.paper === '2' ? 2 : 1;
   const topics = paperTopics[paperNumber];
 
